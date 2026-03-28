@@ -1,4 +1,6 @@
 // src/logtoConfig.ts
+import { APP_ENV } from './env';
+
 export const logtoConfig = {
   endpoint: APP_ENV.logto.endpoint,
   appId: APP_ENV.logto.appId,

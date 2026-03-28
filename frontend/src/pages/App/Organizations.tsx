@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useOrganizationApi } from '../../api/organization';
+import { useApi } from '../../api/base';
 
 interface Organization {
   id: string;
@@ -10,7 +10,7 @@ interface Organization {
 }
 
 const Organizations = () => {
-  const { fetchWithToken } = useOrganizationApi();
+  const { fetchWithToken } = useApi();
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

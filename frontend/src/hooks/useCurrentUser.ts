@@ -1,3 +1,4 @@
+import type { OrganizationData } from '@logto/react';
 import { useLogto } from '@logto/react';
 import { useEffect, useState } from 'react';
 import { APP_ENV } from '../env';
@@ -27,11 +28,21 @@ export const useCurrentUser = (): CurrentUser => {
     if (!isAuthenticated) return;
     fetchUserInfo().then(info => {
       setUserInfo(info);
-      const orgs = info?.organization_data || [];
-      const org = orgs[0] || null;
+      const organizationData = Array.isArray(info?.organization_data)
+        ? (info.organization_data as OrganizationData[])
+        : [];
+      const org = organizationData[0] || null;
+      const organizationRolesClaim = Array.isArray(info?.organization_roles)
+        ? (info.organization_roles as string[])
+        : [];
+      const currentOrgRoles = org
+        ? organizationRolesClaim
+            .filter((role) => role.startsWith(`${org.id}:`))
+            .map((role) => role.split(':')[1])
+        : [];
       setCurrentOrganization(org);
       setOrgId(org?.id);
-      setRoles(org?.organizationRoles || []);
+      setRoles(currentOrgRoles);
       setLoading(false);
     });
   }, [isAuthenticated, fetchUserInfo]);

@@ -1,5 +1,4 @@
 // src/lib/getApiAccessToken.ts
-import { useLogto } from "@logto/react";
 import { LOGTO_RESOURCE } from "../logtoConfig";
 
 export async function getApiAccessToken(logtoClient: any, resource?: string): Promise<string | undefined> {

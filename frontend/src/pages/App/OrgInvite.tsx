@@ -18,6 +18,7 @@ export default function OrgInvite() {
 
   if (userLoading) return <div className="p-8">Cargando...</div>;
   if (!isOrgAdmin) return <div className="p-8 text-red-600">No tienes permiso para esta acción.</div>;
+  if (!orgId) return null;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;

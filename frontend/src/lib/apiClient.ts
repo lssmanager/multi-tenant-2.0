@@ -1,6 +1,7 @@
 // src/lib/apiClient.ts
 import { getApiAccessToken } from "./getApiAccessToken";
 import { LOGTO_RESOURCE } from "../logtoConfig";
+import { APP_ENV } from "../env";
 import { useLogto } from "@logto/react";
 
 export function useApiClient() {

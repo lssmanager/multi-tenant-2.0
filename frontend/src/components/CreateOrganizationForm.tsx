@@ -6,7 +6,7 @@ interface CreateOrganizationFormProps {
   ctaLabel?: string;
 }
 
-const CreateOrganizationForm = ({ onSuccess }: CreateOrganizationFormProps) => {
+const CreateOrganizationForm = ({ onSuccess, ctaLabel }: CreateOrganizationFormProps) => {
   const { createOrganization } = useOrganizationApi();
   const [formData, setFormData] = useState({
     name: '',
@@ -89,4 +89,4 @@ const CreateOrganizationForm = ({ onSuccess }: CreateOrganizationFormProps) => {
   );
 };
 
-export default CreateOrganizationForm; 
+export default CreateOrganizationForm;

@@ -3,6 +3,10 @@ import { APP_ENV } from '../../env';
 
 const Landing = () => {
   const { signIn } = useLogto();
+  const redirectUri =
+    typeof APP_ENV.app.redirectUri === 'string'
+      ? APP_ENV.app.redirectUri
+      : APP_ENV.app.redirectUri?.toString() ?? '';
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-b from-gray-50 to-gray-100">
@@ -15,7 +19,7 @@ const Landing = () => {
               className="px-8 py-3 bg-[#2259F2] text-white rounded-lg hover:bg-[#052490] transition-colors text-lg font-semibold shadow-lg hover:shadow-xl"
               onClick={() => {
                 signIn({
-                  redirectUri: APP_ENV.app.redirectUri,
+                  redirectUri,
                 });
               }}
             >

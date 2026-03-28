@@ -29,12 +29,13 @@ export default function OrgMembers() {
     if (!orgId || !isOrgAdmin) return;
     setLoading(true);
     listMembers(orgId)
-      .then((res) => setMembers(res.data || []))
+      .then((res) => setMembers(res || []))
       .catch(() => setError('No se pudieron cargar los miembros'))
       .finally(() => setLoading(false));
   }, [orgId, isOrgAdmin, listMembers]);
 
   const handleRoleChange = async (memberId: string, newRole: string) => {
+    if (!orgId) return;
     setUpdating(memberId);
     try {
       await updateMemberRole(orgId, memberId, newRole);
@@ -47,6 +48,7 @@ export default function OrgMembers() {
   };
 
   const handleRemove = async (memberId: string) => {
+    if (!orgId) return;
     setRemoving(memberId);
     try {
       await removeMember(orgId, memberId);
@@ -60,6 +62,7 @@ export default function OrgMembers() {
 
   if (userLoading || loading) return <div className="p-8">Cargando miembros...</div>;
   if (!isOrgAdmin) return <div className="p-8 text-red-600">No tienes permiso para esta acción.</div>;
+  if (!orgId) return null;
   if (error) return <div className="p-8 text-red-600">{error}</div>;
   if (members.length === 0) return <div className="p-8">Todavía no hay miembros en tu colegio.</div>;
 
