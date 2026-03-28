@@ -1,8 +1,9 @@
-import { useParams } from "react-router-dom";
+import { Routes, Route, useNavigate, useParams, NavLink } from 'react-router-dom';
 import { useCallback, useEffect, useState } from "react";
 import { useLogto } from "@logto/react";
 import { useOrganizationApi } from "../../api/organization";
 import Topbar from "../../components/Topbar";
+import Tabs, { Tab } from "../../components/Tabs";
 import { type Document } from './types';
 import { LoadingSpinner } from './components/LoadingSpinner';
 import { ErrorMessage } from './components/ErrorMessage';
@@ -51,15 +52,32 @@ const OrganizationPage = () => {
     return <ErrorMessage message={error.message} />;
   }
 
+  const [activeTab, setActiveTab] = useState<string>("documents");
+  const tabs: Tab[] = [
+    { label: "Documents", value: "documents" },
+    { label: "Members", value: "members" },
+    { label: "Settings", value: "settings" },
+  ];
+
   return (
     <div className="min-h-screen flex flex-col">
       <Topbar organizationId={organizationId} showBackButton />
-
+      <Tabs tabs={tabs} active={activeTab} onChange={setActiveTab} />
       {/* Main Content */}
-      <div className="flex-1 bg-gray-50">
+      <div className="flex-1 bg-[#FAFBFD]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <ActionBar canCreateDocuments={userScopes.includes("create:documents")} />
-          <DocumentList documents={documents} />
+          {activeTab === "documents" && (
+            <>
+              <ActionBar canCreateDocuments={userScopes.includes("create:documents")} />
+              <DocumentList documents={documents} />
+            </>
+          )}
+          {activeTab === "members" && (
+            <div className="text-[#031C44]">Members section coming soon.</div>
+          )}
+          {activeTab === "settings" && (
+            <div className="text-[#031C44]">Settings section coming soon.</div>
+          )}
         </div>
       </div>
     </div>

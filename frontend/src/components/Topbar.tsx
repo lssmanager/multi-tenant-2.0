@@ -1,6 +1,7 @@
 import { useLogto } from "@logto/react";
-import { useNavigate } from "react-router-dom";
+import { Routes, Route, useNavigate, useParams, NavLink } from 'react-router-dom';
 import { APP_ENV } from "../env";
+import { BRAND } from "../branding";
 
 type TopbarProps = {
   organizationId?: string;
@@ -12,13 +13,15 @@ const Topbar = ({ organizationId, showBackButton }: TopbarProps) => {
   const navigate = useNavigate();
 
   return (
-    <div className="border-b bg-white">
+    <div className="border-b bg-white shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center">
-            <h1 className="text-xl font-semibold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              DocuMind
-            </h1>
+            <img src={BRAND.logo} alt="Logo" className="h-10 mr-4" />
+            <div className="flex flex-col">
+              <span className="text-xl font-bold text-[#052490] tracking-tight">{BRAND.name}</span>
+              <span className="text-xs text-[#2259F2] font-medium">{BRAND.tagline}</span>
+            </div>
             {organizationId && (
               <div className="ml-4 flex items-center">
                 <span className="text-sm text-gray-500">

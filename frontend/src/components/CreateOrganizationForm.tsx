@@ -1,12 +1,13 @@
 import { useState } from 'react';
-import { useResourceApi } from '../api/resource';
+import { useOrganizationApi } from '../api/organization';
 
 interface CreateOrganizationFormProps {
   onSuccess: (orgId: string) => void;
+  ctaLabel?: string;
 }
 
 const CreateOrganizationForm = ({ onSuccess }: CreateOrganizationFormProps) => {
-  const { createOrganization } = useResourceApi();
+  const { createOrganization } = useOrganizationApi();
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -40,11 +41,11 @@ const CreateOrganizationForm = ({ onSuccess }: CreateOrganizationFormProps) => {
 
   return (
     <div className="max-w-md mx-auto bg-white rounded-xl shadow-sm p-8">
-      <h3 className="text-xl font-semibold text-gray-900 mb-6">Create Your First Organization</h3>
+      <h3 className="text-xl font-semibold text-gray-900 mb-6">School Information</h3>
       <form onSubmit={handleSubmit} className="space-y-6">
         <div>
           <label htmlFor="name" className={labelClassName}>
-            Organization Name
+            School Name <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
@@ -54,12 +55,12 @@ const CreateOrganizationForm = ({ onSuccess }: CreateOrganizationFormProps) => {
             onChange={handleInputChange}
             required
             className={inputClassName}
-            placeholder="Enter organization name"
+            placeholder="Enter school name"
           />
         </div>
         <div>
           <label htmlFor="description" className={labelClassName}>
-            Description
+            Description (optional)
           </label>
           <textarea
             id="description"
@@ -68,7 +69,7 @@ const CreateOrganizationForm = ({ onSuccess }: CreateOrganizationFormProps) => {
             onChange={handleInputChange}
             rows={3}
             className={inputClassName}
-            placeholder="Enter organization description"
+            placeholder="Enter a short description of the school"
           />
         </div>
         {error && (
@@ -81,7 +82,7 @@ const CreateOrganizationForm = ({ onSuccess }: CreateOrganizationFormProps) => {
           disabled={isCreating}
           className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors duration-200 ease-in-out shadow-sm"
         >
-          {isCreating ? 'Creating...' : 'Create Organization'}
+          {isCreating ? 'Creating...' : (ctaLabel || 'Create Organization')}
         </button>
       </form>
     </div>

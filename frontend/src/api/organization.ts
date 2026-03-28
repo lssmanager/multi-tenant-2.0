@@ -1,3 +1,4 @@
+// ELIMINADO: useOrgMembersApi duplicado. Usar src/api/orgMembers.ts
 import { useApi } from './base';
 import { useMemo } from 'react';
 import { useLogto } from '@logto/react';
@@ -8,6 +9,12 @@ export const useOrganizationApi = () => {
   const { getOrganizationToken, getOrganizationTokenClaims } = useLogto();
 
   return useMemo(() => ({
+        createOrganization: async (data: { name: string; description?: string }) => {
+          return await fetchWithToken('/organizations', {
+            method: 'POST',
+            body: JSON.stringify(data),
+          });
+        },
     getDocuments: async (organizationId: string): Promise<Document[]> => {
       return await fetchWithToken('/documents', {
         method: 'GET',
