@@ -1,10 +1,8 @@
+
 import { useLogto } from "@logto/react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import CreateOrganizationForm from "../../components/CreateOrganizationForm";
 import Topbar from "../../components/Topbar";
-import { APP_ENV } from "../../env";
-
 
 type OrganizationData = {
   id: string;
@@ -31,19 +29,18 @@ const Dashboard = () => {
         const firstOrg = organizations[0];
         setOrgId(firstOrg?.id);
         setRoles(firstOrg?.organizationRoles || []);
-      import { useCurrentUser } from "../../hooks/useCurrentUser";
+      } catch (err) {
+        // handle error if needed
+      } finally {
+        setLoading(false);
+      }
     };
     loadUser();
-        const navigate = useNavigate();
-        const { isSuperAdmin, isRetail, currentOrganization, orgRoles, userInfo, loading } = useCurrentUser();
+  }, [isAuthenticated, fetchUserInfo]);
 
-  const isTeacher = roles.includes('teacher');
-      return;
-        const isOrgAdmin = orgRoles.includes("admin");
-        const isTeacher = orgRoles.includes("teacher");
-        const isStudent = orgRoles.includes("student");
+  const isOrgAdmin = roles.includes("admin");
+  const isTeacher = roles.includes("teacher");
 
-  // --- Dashboard blocks (only if not redirected) ---
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen text-[#031C44]">Loading...</div>;
   }
@@ -75,9 +72,6 @@ const Dashboard = () => {
       </div>
     </div>
   );
-};
-
-// ...existing code...
 };
 
 export default Dashboard;
