@@ -18,9 +18,6 @@ app.use(cors());
 const webhookRouter = require('./routes/webhook');
 app.use('/webhook/logto', express.raw({ type: 'application/json' }), webhookRouter);
 
-// 1b. Organizations admin API (Phase 2C)
-const organizationsRouter = require('./routes/organizations');
-app.use('/organizations', organizationsRouter);
 
 // 1b. Organizations admin API (Phase 2C)
 const organizationsRouter = require('./routes/organizations');
