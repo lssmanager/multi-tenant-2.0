@@ -36,7 +36,7 @@ const Landing = () => {
         </div>
 
         <div className="text-center mt-12 text-gray-500">
-          <p>{`© ${new Date().getFullYear()} Learn Social Studies. All rights reserved.`}</p>
+          <p>{`Copyright ${new Date().getFullYear()} Learn Social Studies. All rights reserved.`}</p>
         </div>
       </div>
     </div>
