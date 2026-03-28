@@ -2,15 +2,17 @@ import { useEffect, useState } from 'react';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { useOrgMembersApi } from '../../api/orgMembers';
 
+type OrgRole = 'admin' | 'teacher' | 'student';
+
 interface Member {
   id: string;
   name: string;
   email: string;
-  role: string;
+  role: OrgRole;
   status: 'active' | 'invited';
 }
 
-const roleOptions = [
+const roleOptions: { value: OrgRole; label: string }[] = [
   { value: 'student', label: 'Student' },
   { value: 'teacher', label: 'Teacher' },
   { value: 'admin', label: 'Admin' },
@@ -34,7 +36,7 @@ export default function OrgMembers() {
       .finally(() => setLoading(false));
   }, [orgId, isOrgAdmin, listMembers]);
 
-  const handleRoleChange = async (memberId: string, newRole: string) => {
+  const handleRoleChange = async (memberId: string, newRole: OrgRole) => {
     if (!orgId) return;
     setUpdating(memberId);
     try {

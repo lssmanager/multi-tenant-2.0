@@ -1,7 +1,10 @@
-import type { OrganizationData } from '@logto/react';
 import { useLogto } from '@logto/react';
 import { useEffect, useState } from 'react';
 import { APP_ENV } from '../env';
+
+type LogtoOrganizationData = {
+  id?: string;
+};
 
 export interface CurrentUser {
   loading: boolean;
@@ -29,7 +32,7 @@ export const useCurrentUser = (): CurrentUser => {
     fetchUserInfo().then(info => {
       setUserInfo(info);
       const organizationData = Array.isArray(info?.organization_data)
-        ? (info.organization_data as OrganizationData[])
+        ? (info.organization_data as LogtoOrganizationData[])
         : [];
       const org = organizationData[0] || null;
       const organizationRolesClaim = Array.isArray(info?.organization_roles)
