@@ -1,19 +1,13 @@
-import { Routes, Route, useNavigate, useParams, NavLink } from 'react-router-dom';
-import { FaHome, FaUsers, FaFileAlt, FaCog } from "react-icons/fa";
-import { useCurrentUser } from "../hooks/useCurrentUser";
-
+import { NavLink } from 'react-router-dom';
+import { FaHome, FaUsers } from 'react-icons/fa';
+import { useCurrentUser } from '../hooks/useCurrentUser';
 
 const allMenus = [
-  { label: "Dashboard", to: "/", icon: <FaHome /> },
-  { label: "Organizations", to: "/organizations", icon: <FaUsers />, superOnly: true },
-  { label: "Members", to: "/org/members", icon: <FaUsers />, orgAdminOnly: true },
-  { label: "Invite", to: "/org/invite", icon: <FaUsers />, orgAdminOnly: true },
-  { label: "Groups", to: "/org/groups", icon: <FaFileAlt />, orgAdminOnly: true },
-  { label: "Enroll", to: "/org/enroll", icon: <FaCog />, orgAdminOnly: true },
-  { label: "Documents", to: "/documents", icon: <FaFileAlt /> },
-  { label: "Settings", to: "/settings", icon: <FaCog /> },
+  { label: 'Dashboard', to: '/', icon: <FaHome /> },
+  { label: 'Organizations', to: '/organizations', icon: <FaUsers />, superOnly: true },
+  { label: 'Members', to: '/org/members', icon: <FaUsers />, orgAdminOnly: true },
+  { label: 'Invite', to: '/org/invite', icon: <FaUsers />, orgAdminOnly: true },
 ];
-
 
 export default function Sidebar() {
   const { isSuperAdmin, isOrgAdmin, isRetail, loading } = useCurrentUser();
@@ -26,9 +20,9 @@ export default function Sidebar() {
   });
 
   return (
-    <aside className="h-screen w-56 bg-[#052490] text-white flex flex-col shadow-lg">
+    <aside className="h-full min-h-[calc(100vh-4rem)] w-56 bg-[#052490] text-white flex flex-col shadow-lg">
       <div className="flex items-center justify-center h-20 border-b border-[#2259F2]">
-        <img src="https://media.learnsocialstudies.com/wp-content/uploads/2026/03/13213913/buudyboss-logo-180-x-80-px-1.png" alt="Logo" className="h-12" />
+        <span className="font-semibold tracking-wide">Civitas</span>
       </div>
       <nav className="flex-1 py-6">
         <ul className="space-y-2">
@@ -38,10 +32,10 @@ export default function Sidebar() {
                 to={item.to}
                 className={({ isActive }) =>
                   `flex items-center px-4 py-2 rounded-lg transition-colors duration-200 hover:bg-[#ED9E1B] hover:text-[#031C44] ${
-                    isActive ? "bg-[#2259F2] text-white" : "text-white"
+                    isActive ? 'bg-[#2259F2] text-white' : 'text-white'
                   }`
                 }
-                end={item.to === "/"}
+                end={item.to === '/'}
               >
                 <span className="mr-3 text-lg">{item.icon}</span>
                 <span className="font-medium">{item.label}</span>
