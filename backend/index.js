@@ -30,7 +30,7 @@ app.use(express.json());
 app.use('/roles', rolesRouter);
 
 // 4. Org admin routes (after express.json)
-app.use('/org-admin', authenticateUser, requireOrgAdmin, orgAdminRouter);
+app.use('/org-admin', requireAuth(process.env.API_RESOURCE_INDICATOR), requireOrgAdmin, orgAdminRouter);
 
 // Organizations routes
 app.post(
