@@ -1,49 +1,9 @@
-import { useLogto } from "@logto/react";
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import CreateOrganizationForm from "../../components/CreateOrganizationForm";
+import { useCurrentUser } from "../../hooks/useCurrentUser";
 import Topbar from "../../components/Topbar";
-import { APP_ENV } from "../../env";
-
-
-type OrganizationData = {
-  id: string;
-  name: string;
-  description: string | null;
-  organizationRoles?: string[];
-};
 
 const Dashboard = () => {
-  const { isAuthenticated, fetchUserInfo } = useLogto();
-  const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [userInfo, setUserInfo] = useState<any>(null);
-  const [orgId, setOrgId] = useState<string | undefined>(undefined);
-  const [roles, setRoles] = useState<string[]>([]);
+  const { loading, userInfo, currentOrg, orgId, isOrgAdmin, isTeacher } = useCurrentUser();
 
-  useEffect(() => {
-    const loadUser = async () => {
-      if (!isAuthenticated) return;
-      try {
-        const info = await fetchUserInfo();
-        setUserInfo(info);
-        const organizations = info?.organization_data || [];
-        const firstOrg = organizations[0];
-        setOrgId(firstOrg?.id);
-        setRoles(firstOrg?.organizationRoles || []);
-      import { useCurrentUser } from "../../hooks/useCurrentUser";
-    };
-    loadUser();
-        const navigate = useNavigate();
-        const { isSuperAdmin, isRetail, currentOrganization, orgRoles, userInfo, loading } = useCurrentUser();
-
-  const isTeacher = roles.includes('teacher');
-      return;
-        const isOrgAdmin = orgRoles.includes("admin");
-        const isTeacher = orgRoles.includes("teacher");
-        const isStudent = orgRoles.includes("student");
-
-  // --- Dashboard blocks (only if not redirected) ---
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen text-[#031C44]">Loading...</div>;
   }
@@ -55,7 +15,7 @@ const Dashboard = () => {
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <h2 className="text-2xl font-bold text-[#052490] mb-2">Welcome to Learn Social Studies</h2>
           {orgId && (
-            <div className="text-md text-[#031C44] mb-6">{userInfo?.organization_data?.[0]?.name}</div>
+            <div className="text-md text-[#031C44] mb-6">{currentOrg?.name}</div>
           )}
           {/* Quick access blocks by role */}
           {isOrgAdmin && (
@@ -75,9 +35,6 @@ const Dashboard = () => {
       </div>
     </div>
   );
-};
-
-// ...existing code...
 };
 
 export default Dashboard;
