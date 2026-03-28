@@ -1,6 +1,4 @@
-const orgAdminRouter = require('./routes/orgAdmin');
-const { requireOrgAdmin } = require('./middleware/requireOrgAdmin');
-app.use('/org-admin', authenticateUser, requireOrgAdmin, orgAdminRouter);
+
 const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
@@ -9,26 +7,30 @@ const { fetchLogtoManagementApiAccessToken } = require("./lib/utils");
 const app = express();
 const port = process.env.PORT || 3000;
 
+// Routers and middleware
+const orgAdminRouter = require('./routes/orgAdmin');
+const { requireOrgAdmin } = require('./middleware/requireOrgAdmin');
+const webhookRouter = require('./routes/webhook');
+const organizationsRouter = require('./routes/organizations');
+const rolesRouter = require('./routes/roles');
+
 // Middleware
 app.use(cors());
 
-
-
 // 1. Webhook FIRST — needs express.raw(), must be before express.json()
-const webhookRouter = require('./routes/webhook');
 app.use('/webhook/logto', express.raw({ type: 'application/json' }), webhookRouter);
 
-
 // 1b. Organizations admin API (Phase 2C)
-const organizationsRouter = require('./routes/organizations');
 app.use('/organizations', organizationsRouter);
 
 // 2. JSON parser for all other routes
 app.use(express.json());
 
 // 3. FluentCRM role-sync webhook (no auth middleware — verified via X-Webhook-Secret)
-const rolesRouter = require('./routes/roles');
 app.use('/roles', rolesRouter);
+
+// 4. Org admin routes (after express.json)
+app.use('/org-admin', authenticateUser, requireOrgAdmin, orgAdminRouter);
 
 // Organizations routes
 app.post(
