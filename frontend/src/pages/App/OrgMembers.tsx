@@ -2,17 +2,17 @@ import { useEffect, useState } from 'react';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { useOrgMembersApi } from '../../api/orgMembers';
 
-type OrgRole = 'admin' | 'teacher' | 'student';
+type Role = 'admin' | 'teacher' | 'student';
 
 interface Member {
   id: string;
   name: string;
   email: string;
-  role: OrgRole;
+  role: Role;
   status: 'active' | 'invited';
 }
 
-const roleOptions: { value: OrgRole; label: string }[] = [
+const roleOptions: { value: Role; label: string }[] = [
   { value: 'student', label: 'Student' },
   { value: 'teacher', label: 'Teacher' },
   { value: 'admin', label: 'Admin' },
@@ -36,7 +36,7 @@ export default function OrgMembers() {
       .finally(() => setLoading(false));
   }, [orgId, isOrgAdmin, listMembers]);
 
-  const handleRoleChange = async (memberId: string, newRole: OrgRole) => {
+  const handleRoleChange = async (memberId: string, newRole: Role) => {
     if (!orgId) return;
     setUpdating(memberId);
     try {
@@ -89,7 +89,7 @@ export default function OrgMembers() {
               <td className="py-2 px-4">
                 <select
                   value={member.role}
-                  onChange={e => handleRoleChange(member.id, e.target.value)}
+                  onChange={(e) => handleRoleChange(member.id, e.target.value as Role)}
                   disabled={updating === member.id}
                   className="border rounded px-2 py-1"
                 >

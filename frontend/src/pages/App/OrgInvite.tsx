@@ -2,9 +2,9 @@ import { useState } from 'react';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { useOrgMembersApi } from '../../api/orgMembers';
 
-type OrgRole = 'admin' | 'teacher' | 'student';
+type Role = 'admin' | 'teacher' | 'student';
 
-const roleOptions: { value: OrgRole; label: string }[] = [
+const roleOptions: { value: Role; label: string }[] = [
   { value: 'student', label: 'Student' },
   { value: 'teacher', label: 'Teacher' },
   { value: 'admin', label: 'Admin' },
@@ -13,7 +13,7 @@ const roleOptions: { value: OrgRole; label: string }[] = [
 export default function OrgInvite() {
   const { orgId, isOrgAdmin, loading: userLoading } = useCurrentUser();
   const { inviteMember } = useOrgMembersApi();
-  const [form, setForm] = useState<{ email: string; role: OrgRole; name: string }>({
+  const [form, setForm] = useState<{ email: string; role: Role; name: string }>({
     email: '',
     role: 'student',
     name: '',
@@ -28,8 +28,11 @@ export default function OrgInvite() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const field = e.target.name as keyof typeof form;
-    const value = field === 'role' ? (e.target.value as OrgRole) : e.target.value;
-    setForm(prev => ({ ...prev, [field]: value }));
+    if (field === 'role') {
+      setForm((prev) => ({ ...prev, role: e.target.value as Role }));
+      return;
+    }
+    setForm((prev) => ({ ...prev, [field]: e.target.value }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
