@@ -21,16 +21,16 @@ app.use(cors());
 // 1. Webhook FIRST — needs express.raw(), must be before express.json()
 app.use('/webhook/logto', express.raw({ type: 'application/json' }), webhookRouter);
 
-// 1b. Organizations admin API (Phase 2C)
-app.use('/organizations', organizationsRouter);
-
 // 2. JSON parser for all other routes
 app.use(express.json());
 
-// 3. FluentCRM role-sync webhook (no auth middleware — verified via X-Webhook-Secret)
+// 3. Organizations admin API (Phase 2C)
+app.use('/organizations', organizationsRouter);
+
+// 4. FluentCRM role-sync webhook (no auth middleware — verified via X-Webhook-Secret)
 app.use('/roles', rolesRouter);
 
-// 4. Org admin routes (after express.json)
+// 5. Org admin routes (after express.json)
 app.use('/org-admin', requireAuth(process.env.API_RESOURCE_INDICATOR), requireOrgAdmin, orgAdminRouter);
 app.use('/org', requireAuth(process.env.API_RESOURCE_INDICATOR), requireOrgAdmin, orgAdminRouter);
 

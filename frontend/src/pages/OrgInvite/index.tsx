@@ -7,8 +7,8 @@ type Role = 'student' | 'teacher' | 'admin';
 
 const OrgInvitePage: React.FC = () => {
   const { orgId: orgIdParam } = useParams();
-  const { orgId: currentOrgId, isOrgAdmin } = useCurrentUser();
-  const orgId = orgIdParam ?? currentOrgId;
+  const { effectiveOrgId, isOrgAdmin } = useCurrentUser();
+  const orgId = orgIdParam ?? effectiveOrgId;
   const orgMembersApi = useOrgMembersApi();
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<Role>('student');

@@ -243,6 +243,21 @@ async function findContactByEmail(email) {
   }
 }
 
+/**
+ * List subscribers from FluentCRM with optional filters.
+ * @param {object} params
+ * @returns {Promise<object[]>}
+ */
+async function listSubscribers(params = {}) {
+  const url = `${FCRM_BASE}/subscribers`;
+  try {
+    const { data } = await client.get(url, { params, headers: fcrmHeaders() });
+    return data?.subscribers?.data || data?.data || [];
+  } catch (err) {
+    throw new Error(`FluentCRM listSubscribers failed: ${err.message}`);
+  }
+}
+
 module.exports = {
   upsertFluentCRMContact,
   findCompanyByOrgId,
@@ -252,4 +267,5 @@ module.exports = {
   createTag,
   createCompany,
   findContactByEmail,
+  listSubscribers,
 };

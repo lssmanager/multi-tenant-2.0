@@ -6,7 +6,12 @@ export interface OrgMember {
   name: string;
   email: string;
   role: 'student' | 'teacher' | 'admin';
-  status: 'active' | 'invited';
+  status: 'active' | 'invited' | 'deactivated';
+  lastActivity?: string;
+  origin?: 'invite' | 'auto-provision' | string;
+  invitedAt?: string;
+  inviteAttempts?: number;
+  invitationStatus?: 'pending' | 'accepted' | 'expired' | string;
 }
 
 export interface InviteMemberPayload {

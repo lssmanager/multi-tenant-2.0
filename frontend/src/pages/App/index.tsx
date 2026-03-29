@@ -1,32 +1,34 @@
-import {
-  LogtoProvider,
-  LogtoConfig,
-} from "@logto/react";
-import { useEffect } from "react";
-import { Routes, Route } from "react-router-dom";
-import { useLogto } from "@logto/react";
-import Landing from "./Landing";
-import Dashboard from "./Dashboard";
-import Callback from "../Callback";
-import OrganizationPage from "../OrganizationPage";
-import Organizations from "./Organizations";
-import OrganizationDetails from "./OrganizationDetails";
-import OrgMembersPage from "../OrgMembers";
-import OrgInvite from "./OrgInvite";
-import Sidebar from "../../components/Sidebar";
-import Topbar from "../../components/Topbar";
-import { useCurrentUser } from "../../hooks/useCurrentUser";
+import { LogtoConfig, LogtoProvider, useLogto } from '@logto/react';
+import { useEffect } from 'react';
+import { Route, Routes } from 'react-router-dom';
+import Sidebar from '../../components/Sidebar';
+import Topbar from '../../components/Topbar';
+import { ToastProvider } from '../../components/ToastProvider';
+import { useCurrentUser } from '../../hooks/useCurrentUser';
+import { clearImpersonationContext } from '../../lib/impersonation';
+import Callback from '../Callback';
+import OrgMembersPage from '../OrgMembers';
+import OrganizationPage from '../OrganizationPage';
+import Dashboard from './Dashboard';
+import Landing from './Landing';
+import OrganizationDetails from './OrganizationDetails';
+import Organizations from './Organizations';
+import OrgGroupsCourses from './OrgGroupsCourses';
+import OrgBulkEnrollment from './OrgBulkEnrollment';
+import OrgInvite from './OrgInvite';
+import TeacherGroups from './TeacherGroups';
+import TeacherGroupStudents from './TeacherGroupStudents';
 
 const config: LogtoConfig = {
   endpoint: import.meta.env.VITE_LOGTO_ENDPOINT,
   appId: import.meta.env.VITE_LOGTO_APP_ID,
   resources: [import.meta.env.VITE_API_URL],
   scopes: [
-    "read:documents",
-    "create:documents",
-    "roles",
-    "urn:logto:scope:organizations",
-    "urn:logto:scope:organization_roles",
+    'read:documents',
+    'create:documents',
+    'roles',
+    'urn:logto:scope:organizations',
+    'urn:logto:scope:organization_roles',
   ],
 };
 
@@ -52,7 +54,16 @@ function NotFound() {
 }
 
 function AppContent() {
-  const { loading, isAuthenticated, isSuperAdmin, isOrgAdmin } = useCurrentUser();
+  const {
+    loading,
+    isAuthenticated,
+    isSuperAdmin,
+    isOrgAdmin,
+    isTeacher,
+    isImpersonating,
+    impersonatedOrgName,
+    impersonatedRole,
+  } = useCurrentUser();
   const { getIdTokenClaims } = useLogto();
 
   useEffect(() => {
@@ -66,30 +77,48 @@ function AppContent() {
     })();
   }, [isAuthenticated, getIdTokenClaims]);
 
-  if (!isAuthenticated) {
-    return <Landing />;
-  }
+  const canAccessTeacherViews =
+    isTeacher && (!isSuperAdmin || (isImpersonating && impersonatedRole === 'teacher'));
+  const canAccessOrgAdminViews =
+    isOrgAdmin &&
+    (!isSuperAdmin || !isImpersonating || impersonatedRole === 'admin' || !impersonatedRole);
 
-  if (loading) {
-    return <div className="flex items-center justify-center min-h-screen text-[#031C44]">Loading...</div>;
-  }
+  if (!isAuthenticated) return <Landing />;
+  if (loading) return <div className="flex items-center justify-center min-h-screen text-[#031C44]">Loading...</div>;
 
   return (
     <div className="min-h-screen bg-[#FAFBFD]">
-      <Topbar />
-      <div className="flex min-h-[calc(100vh-4rem)]">
-        <Sidebar />
-        <div className="flex-1">
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path=":orgId" element={<OrganizationPage />} />
-            <Route path="/organizations" element={isSuperAdmin ? <Organizations /> : <NotFound />} />
-            <Route path="/organizations/:id" element={isSuperAdmin ? <OrganizationDetails /> : <NotFound />} />
-            <Route path="/org/members" element={isOrgAdmin ? <OrgMembersPage /> : <NotFound />} />
-            <Route path="/org/invite" element={isOrgAdmin ? <OrgInvite /> : <NotFound />} />
-          </Routes>
+      <ToastProvider>
+        <Topbar />
+        {isSuperAdmin && isImpersonating && (
+          <div className="bg-amber-100 border-b border-amber-300 px-4 py-2 text-sm text-amber-900 flex items-center justify-between">
+            <span>You are operating as {impersonatedRole || 'admin'} of {impersonatedOrgName || 'this school'}.</span>
+            <button
+              onClick={() => clearImpersonationContext()}
+              className="px-3 py-1 rounded-md bg-white border border-amber-400 hover:bg-amber-50"
+            >
+              Exit impersonation
+            </button>
+          </div>
+        )}
+        <div className="flex min-h-[calc(100vh-4rem)]">
+          <Sidebar />
+          <div className="flex-1">
+            <Routes>
+              <Route path="/" element={<Dashboard />} />
+              <Route path=":orgId" element={<OrganizationPage />} />
+              <Route path="/organizations" element={isSuperAdmin ? <Organizations /> : <NotFound />} />
+              <Route path="/organizations/:id" element={isSuperAdmin ? <OrganizationDetails /> : <NotFound />} />
+              <Route path="/org/members" element={canAccessOrgAdminViews ? <OrgMembersPage /> : <NotFound />} />
+              <Route path="/org/invite" element={canAccessOrgAdminViews ? <OrgInvite /> : <NotFound />} />
+              <Route path="/org/groups" element={canAccessOrgAdminViews ? <OrgGroupsCourses /> : <NotFound />} />
+              <Route path="/org/enroll" element={canAccessOrgAdminViews ? <OrgBulkEnrollment /> : <NotFound />} />
+              <Route path="/teacher/groups" element={canAccessTeacherViews ? <TeacherGroups /> : <NotFound />} />
+              <Route path="/teacher/groups/:groupId/students" element={canAccessTeacherViews ? <TeacherGroupStudents /> : <NotFound />} />
+            </Routes>
+          </div>
         </div>
-      </div>
+      </ToastProvider>
     </div>
   );
 }

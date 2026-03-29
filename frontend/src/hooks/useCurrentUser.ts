@@ -1,6 +1,11 @@
 import { useLogto } from '@logto/react';
 import { useEffect, useState } from 'react';
 import { APP_ENV } from '../env';
+import {
+  getImpersonationContext,
+  IMPERSONATION_EVENT_NAME,
+  type ImpersonationContext,
+} from '../lib/impersonation';
 
 type LogtoOrganizationData = {
   id?: string;
@@ -33,6 +38,11 @@ export interface CurrentUser {
   currentOrganization: LogtoOrganizationData | null;
   organizations: string[];
   orgId: string | undefined;
+  effectiveOrgId: string | undefined;
+  isImpersonating: boolean;
+  impersonatedOrgId: string | undefined;
+  impersonatedOrgName: string | undefined;
+  impersonatedRole: 'admin' | 'teacher' | 'student' | undefined;
   isSuperAdmin: boolean;
   isRetail: boolean;
   isOrgAdmin: boolean;
@@ -49,6 +59,7 @@ export const useCurrentUser = (): CurrentUser => {
   const [orgId, setOrgId] = useState<string | undefined>(undefined);
   const [globalRoles, setGlobalRoles] = useState<string[]>([]);
   const [orgRoles, setOrgRoles] = useState<string[]>([]);
+  const [impersonationContext, setImpersonationContext] = useState<ImpersonationContext | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -114,11 +125,29 @@ export const useCurrentUser = (): CurrentUser => {
     };
   }, [isAuthenticated, fetchUserInfo]);
 
+  useEffect(() => {
+    const updateFromStorage = () => {
+      setImpersonationContext(getImpersonationContext());
+    };
+
+    updateFromStorage();
+    window.addEventListener('storage', updateFromStorage);
+    window.addEventListener(IMPERSONATION_EVENT_NAME, updateFromStorage);
+
+    return () => {
+      window.removeEventListener('storage', updateFromStorage);
+      window.removeEventListener(IMPERSONATION_EVENT_NAME, updateFromStorage);
+    };
+  }, []);
+
   const isSuperAdmin = globalRoles.includes('super-admin');
-  const isRetail = orgId === normalizeString(APP_ENV.retailOrgId);
+  const impersonatedOrgId = isSuperAdmin ? normalizeString(impersonationContext?.orgId) || undefined : undefined;
+  const effectiveOrgId = impersonatedOrgId || orgId;
+  const isRetail = effectiveOrgId === normalizeString(APP_ENV.retailOrgId);
   const isOrgAdmin = isSuperAdmin || orgRoles.includes('admin');
   const isTeacher = isSuperAdmin || orgRoles.includes('teacher');
   const isStudent = isSuperAdmin || orgRoles.includes('student');
+  const isImpersonating = Boolean(isSuperAdmin && impersonatedOrgId);
 
   return {
     loading,
@@ -127,6 +156,11 @@ export const useCurrentUser = (): CurrentUser => {
     currentOrganization,
     organizations,
     orgId,
+    effectiveOrgId,
+    isImpersonating,
+    impersonatedOrgId,
+    impersonatedOrgName: isSuperAdmin ? impersonationContext?.orgName : undefined,
+    impersonatedRole: isSuperAdmin ? impersonationContext?.role : undefined,
     isSuperAdmin,
     isRetail,
     isOrgAdmin,

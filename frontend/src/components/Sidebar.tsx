@@ -1,21 +1,31 @@
 import { NavLink } from 'react-router-dom';
-import { FaHome, FaUsers } from 'react-icons/fa';
+import { FaChalkboardTeacher, FaFileUpload, FaHome, FaLayerGroup, FaUsers } from 'react-icons/fa';
 import { useCurrentUser } from '../hooks/useCurrentUser';
 
 const allMenus = [
   { label: 'Dashboard', to: '/', icon: <FaHome /> },
   { label: 'Organizations', to: '/organizations', icon: <FaUsers />, superOnly: true },
+  { label: 'Groups', to: '/org/groups', icon: <FaLayerGroup />, orgAdminOnly: true },
+  { label: 'Bulk Enrollment', to: '/org/enroll', icon: <FaFileUpload />, orgAdminOnly: true },
   { label: 'Members', to: '/org/members', icon: <FaUsers />, orgAdminOnly: true },
   { label: 'Invite', to: '/org/invite', icon: <FaUsers />, orgAdminOnly: true },
+  { label: 'My Groups', to: '/teacher/groups', icon: <FaChalkboardTeacher />, teacherOnly: true },
 ];
 
 export default function Sidebar() {
-  const { isSuperAdmin, isOrgAdmin, isRetail, loading } = useCurrentUser();
+  const { isSuperAdmin, isOrgAdmin, isTeacher, isImpersonating, impersonatedRole, isRetail, loading } = useCurrentUser();
   if (loading || isRetail) return null;
+
+  const canAccessTeacherViews =
+    isTeacher && (!isSuperAdmin || (isImpersonating && impersonatedRole === 'teacher'));
+  const canAccessOrgAdminViews =
+    isOrgAdmin &&
+    (!isSuperAdmin || !isImpersonating || impersonatedRole === 'admin' || !impersonatedRole);
 
   const menu = allMenus.filter((item) => {
     if (item.superOnly) return isSuperAdmin;
-    if (item.orgAdminOnly) return isOrgAdmin;
+    if (item.orgAdminOnly) return canAccessOrgAdminViews;
+    if (item.teacherOnly) return canAccessTeacherViews;
     return true;
   });
 

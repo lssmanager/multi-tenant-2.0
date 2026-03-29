@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { type ChangeEvent, type FormEvent, useState } from 'react';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { useOrgMembersApi } from '../../api/orgMembers';
+import { useToast } from '../../components/ToastProvider';
 
 type Role = 'admin' | 'teacher' | 'student';
 
@@ -10,9 +11,32 @@ const roleOptions: { value: Role; label: string }[] = [
   { value: 'admin', label: 'Admin' },
 ];
 
+const parseInstitutionalDomain = (value: string | undefined | null): string | null => {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === '-') return null;
+
+  const explicitDomainMatch = trimmed.match(/domain\s*:\s*([^|]+)/i);
+  if (explicitDomainMatch && explicitDomainMatch[1]) {
+    const explicitDomain = explicitDomainMatch[1].trim().replace(/^@/, '').toLowerCase();
+    if (explicitDomain) return explicitDomain;
+  }
+
+  if (trimmed.includes('@')) {
+    const atIndex = trimmed.indexOf('@');
+    const domain = trimmed.slice(atIndex + 1).toLowerCase();
+    const clean = domain.split(/\s|\|/)[0];
+    return clean || null;
+  }
+
+  return trimmed.replace(/^https?:\/\//i, '').replace(/\/.*$/, '').toLowerCase() || null;
+};
+
 export default function OrgInvite() {
-  const { orgId, isOrgAdmin, loading: userLoading } = useCurrentUser();
+  const { effectiveOrgId, isOrgAdmin, currentOrganization, loading: userLoading } = useCurrentUser();
   const { inviteMember } = useOrgMembersApi();
+  const { showError, showSuccess } = useToast();
+
   const [form, setForm] = useState<{ email: string; role: Role; name: string }>({
     email: '',
     role: 'student',
@@ -22,11 +46,13 @@ export default function OrgInvite() {
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  if (userLoading) return <div className="p-8">Cargando...</div>;
-  if (!isOrgAdmin) return <div className="p-8 text-red-600">No tienes permiso para esta acción.</div>;
-  if (!orgId) return null;
+  const institutionalDomain = parseInstitutionalDomain(currentOrganization?.description);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  if (userLoading) return <div className="p-8">Loading...</div>;
+  if (!isOrgAdmin) return <div className="p-8 text-red-600">No tienes permiso para esta accion.</div>;
+  if (!effectiveOrgId) return null;
+
+  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const field = e.target.name as keyof typeof form;
     if (field === 'role') {
       setForm((prev) => ({ ...prev, role: e.target.value as Role }));
@@ -35,17 +61,35 @@ export default function OrgInvite() {
     setForm((prev) => ({ ...prev, [field]: e.target.value }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
     setSuccess(null);
+
+    if (institutionalDomain) {
+      const email = form.email.trim().toLowerCase();
+      if (!email.endsWith(`@${institutionalDomain}`)) {
+        const message = 'SOLO MIEMBROS DE TU ORGANIZATION, CONTACTA SOPORTE PARA EMAIL NO INSTITUCIONALES.';
+        setError(message);
+        showError(message);
+        setLoading(false);
+        return;
+      }
+    }
+
     try {
-      await inviteMember(orgId, form);
-      setSuccess(`Invitation sent to ${form.email}`);
+      await inviteMember(effectiveOrgId, {
+        email: form.email.trim().toLowerCase(),
+        role: form.role,
+        name: form.name.trim() || undefined,
+      });
+      setSuccess(`Invitation sent to ${form.email.trim().toLowerCase()}`);
+      showSuccess('Invitacion enviada', `Se envio invitacion a ${form.email.trim().toLowerCase()}.`);
       setForm({ email: '', role: 'student', name: '' });
     } catch {
-      setError('No se pudo enviar la invitación.');
+      setError('No se pudo enviar la invitacion.');
+      showError('No se pudo enviar la invitacion', 'Error: reintenta mas tarde o contacta soporte.');
     } finally {
       setLoading(false);
     }
@@ -56,7 +100,9 @@ export default function OrgInvite() {
       <h2 className="text-2xl font-bold mb-6">Invitar miembro</h2>
       <form onSubmit={handleSubmit} className="space-y-6">
         <div>
-          <label className="block mb-1 font-medium">Email <span className="text-red-500">*</span></label>
+          <label className="block mb-1 font-medium">
+            Email <span className="text-red-500">*</span>
+          </label>
           <input
             type="email"
             name="email"
@@ -66,6 +112,9 @@ export default function OrgInvite() {
             className="w-full border rounded px-3 py-2"
             placeholder="user@email.com"
           />
+          {institutionalDomain && (
+            <p className="text-xs text-gray-500 mt-1">Dominio permitido: @{institutionalDomain}</p>
+          )}
         </div>
         <div>
           <label className="block mb-1 font-medium">Rol</label>
@@ -75,8 +124,10 @@ export default function OrgInvite() {
             onChange={handleChange}
             className="w-full border rounded px-3 py-2"
           >
-            {roleOptions.map(opt => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            {roleOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
             ))}
           </select>
         </div>

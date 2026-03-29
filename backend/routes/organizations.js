@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const axios = require('axios');
+const { requireAuth } = require('../middleware/auth');
 const {
   createOrganization,
   ensureOrgRolesExist,
@@ -12,13 +13,24 @@ const {
   normalizeRoleName,
 } = require('../services/logtoManagement');
 const { createCategory, createCohort, addCohortMemberByEmail, createGroup, createGrouping, assignGroupToGrouping } = require('../services/moodle');
-const { createList, createTag, findContactByEmail, upsertFluentCRMContact, findCompanyByOrgId, attachContactToCompany, createCompany } = require('../services/fluentcrm');
+const {
+  createList,
+  createTag,
+  findContactByEmail,
+  upsertFluentCRMContact,
+  findCompanyByOrgId,
+  attachContactToCompany,
+  createCompany,
+  listSubscribers,
+} = require('../services/fluentcrm');
 const { findWordPressUserByEmail } = require('../services/wordpress');
 const { createGroup: createBBGroup, addMemberToGroup } = require('../services/buddyboss');
 
 // TODO: Add multer for file upload parsing when implementing batch endpoints
 // const multer = require('multer');
 // const upload = multer({ dest: 'uploads/' });
+
+router.use(requireAuth(process.env.API_RESOURCE_INDICATOR));
 
 
 // --- Super-admin check middleware with cache ---
@@ -67,6 +79,74 @@ router.get('/', requireSuperAdmin, async (req, res) => {
     res.status(200).json(organizations);
   } catch (err) {
     res.status(500).json({ error: 'Failed to load organizations' });
+  }
+});
+
+// GET /organizations/retail/dashboard — Retail CRM snapshot for super-admin
+router.get('/retail/dashboard', requireSuperAdmin, async (req, res) => {
+  try {
+    const {
+      search = '',
+      role = '',
+      membership = '',
+      status = '',
+      page = '1',
+      per_page = '100',
+    } = req.query;
+
+    const subscribers = await listSubscribers({
+      search,
+      page,
+      per_page,
+      status,
+    });
+
+    const normalizedRole = String(role || '').trim().toLowerCase();
+    const normalizedMembership = String(membership || '').trim().toLowerCase();
+    const normalizedStatus = String(status || '').trim().toLowerCase();
+
+    const users = (Array.isArray(subscribers) ? subscribers : []).filter((subscriber) => {
+      const customValues = subscriber.custom_values || {};
+      const userRole = String(customValues.user_role || '').trim().toLowerCase();
+      const membershipStatus = String(customValues.subscriptions_status || '').trim().toLowerCase();
+      const subscriberStatus = String(subscriber.status || '').trim().toLowerCase();
+
+      if (normalizedRole && userRole !== normalizedRole) return false;
+      if (normalizedMembership && membershipStatus !== normalizedMembership) return false;
+      if (normalizedStatus && subscriberStatus !== normalizedStatus) return false;
+      return true;
+    });
+
+    const membershipSummary = users.reduce(
+      (acc, subscriber) => {
+        const customValues = subscriber.custom_values || {};
+        const membershipStatus = String(customValues.subscriptions_status || '').trim().toLowerCase();
+        if (membershipStatus === 'active') acc.active += 1;
+        if (membershipStatus === 'expired' || membershipStatus === 'cancelled') acc.expired += 1;
+        return acc;
+      },
+      { active: 0, expired: 0 },
+    );
+
+    const activeRetailUsers = users.filter((subscriber) => String(subscriber.status || '').toLowerCase() === 'subscribed').length;
+
+    res.status(200).json({
+      summary: {
+        activeRetailUsers,
+        membershipsActive: membershipSummary.active,
+        membershipsExpired: membershipSummary.expired,
+        totalUsers: users.length,
+      },
+      users,
+      filters: {
+        search: String(search || ''),
+        role: normalizedRole,
+        membership: normalizedMembership,
+        status: normalizedStatus,
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to load retail dashboard data' });
   }
 });
 
