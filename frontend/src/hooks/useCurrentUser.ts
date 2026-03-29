@@ -204,12 +204,15 @@ export const useCurrentUser = (): CurrentUser => {
   }, []);
 
   const isSuperAdmin = globalRoles.includes('super-admin');
-  const impersonatedOrgId = isSuperAdmin ? normalizeString(impersonationContext?.orgId) || undefined : undefined;
+  // Impersonation context is only relevant if super-admin and explicitly set
+  const impersonatedOrgId = isSuperAdmin && impersonationContext?.orgId ? normalizeString(impersonationContext.orgId) : undefined;
   const effectiveOrgId = impersonatedOrgId || orgId;
   const isRetail = effectiveOrgId === normalizeString(APP_ENV.retailOrgId);
-  const isOrgAdmin = isSuperAdmin || orgRoles.includes('admin');
-  const isTeacher = isSuperAdmin || orgRoles.includes('teacher');
-  const isStudent = isSuperAdmin || orgRoles.includes('student');
+  // Organization-scoped roles: strictly scoped to the effectiveOrgId, never OR with isSuperAdmin
+  const isOrgAdmin = orgRoles.includes('admin');
+  const isTeacher = orgRoles.includes('teacher');
+  const isStudent = orgRoles.includes('student');
+  // Impersonation is only true if super-admin and impersonation context is set
   const isImpersonating = Boolean(isSuperAdmin && impersonatedOrgId);
   const accessContext = {
     isSuperAdmin,

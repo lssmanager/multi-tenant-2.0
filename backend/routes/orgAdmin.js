@@ -1,11 +1,19 @@
 const express = require('express');
 const router = express.Router();
+const { requireOrgAdmin } = require('../middleware/requireOrgAdmin');
 const { getManagementToken, getOrgRoleIdByName } = require('../services/logtoManagement');
 const { findWordPressUserByEmail, updateWordPressUserRole } = require('../services/wordpress');
 const { assignMoodleRole } = require('../services/moodle');
 const axios = require('axios');
 
-const getOrganizationId = (req) => req.user?.organizationId || req.params?.orgId || null;
+// Source of truth: always from authenticated context
+const getOrganizationId = (req) =>
+  req.user?.accessContext?.effectiveOrganizationId ||
+  req.user?.organizationId ||
+  null;
+
+// All sensitive org-admin routes require org admin guard
+router.use(requireOrgAdmin);
 
 const buildGroupSnapshot = (organizationId) => ([
   {
@@ -37,6 +45,7 @@ const buildCourseSnapshot = (organizationId) => ([
   },
 ]);
 
+const { listOrgMembers } = require('../services/orgMembers');
 // GET /org-admin/members
 router.get('/members', async (req, res) => {
   const organizationId = getOrganizationId(req);
@@ -44,17 +53,12 @@ router.get('/members', async (req, res) => {
     return res.status(400).json({ error: 'Organization context missing' });
   }
   try {
-    const token = await getManagementToken();
-    const response = await axios.get(
-      `https://auth.learnsocialstudies.com/api/organizations/${organizationId}/users`,
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-    return res.status(200).json(response.data);
+    const members = await listOrgMembers(organizationId);
+    return res.status(200).json({ organizationId, members });
   } catch (err) {
     return res.status(200).json({
       organizationId,
       members: [],
-      data: [],
       note: 'Fallback empty member list. Backend source not reachable.',
     });
   }
@@ -109,6 +113,7 @@ router.get('/courses', async (req, res) => {
   });
 });
 
+const { createGroupForTeacher } = require('../services/orgGroups');
 // POST /org/groups
 router.post('/groups', async (req, res) => {
   const organizationId = getOrganizationId(req);
@@ -116,53 +121,28 @@ router.post('/groups', async (req, res) => {
   if (!organizationId) {
     return res.status(400).json({ error: 'Organization context missing' });
   }
-  return res.status(201).json({
-    organizationId,
-    results: {
-      moodleGroup: 'fulfilled',
-      teacherCohort: 'fulfilled',
-      grouping: 'fulfilled',
-      bbSubgroup: 'fulfilled',
-    },
-    moodleGroup: {
-      id: `${organizationId}-moodle-group-${Date.now()}`,
-      name: groupName,
-      courseId,
-    },
-    teacherCohort: {
-      id: `${organizationId}-teacher-cohort-${Date.now()}`,
-      teacherId,
-      teacherName,
-    },
-    grouping: {
-      id: `${organizationId}-grouping-${Date.now()}`,
-    },
-    bbSubgroup: {
-      id: `${organizationId}-bb-subgroup-${Date.now()}`,
-    },
-  });
+  try {
+    const group = await createGroupForTeacher({ organizationId, teacherId, teacherName, courseId, groupName });
+    return res.status(201).json({ organizationId, group, status: 'created' });
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to create group', message: err.message });
+  }
 });
 
+const { bulkEnroll } = require('../services/orgBulkEnrollment');
 // POST /org/bulk-enrollment
 router.post('/bulk-enrollment', async (req, res) => {
   const organizationId = getOrganizationId(req);
   if (!organizationId) {
     return res.status(400).json({ error: 'Organization context missing' });
   }
-
   const rows = Array.isArray(req.body?.rows) ? req.body.rows : [];
-  const results = rows.map((row, index) => ({
-    rowNumber: row?.rowNumber || index + 1,
-    email: row?.email || '',
-    action: row?.email ? 'created' : 'error',
-    detail: row?.email ? 'Accepted by fallback bulk enrollment handler.' : 'Missing email.',
-  }));
-
-  return res.status(200).json({
-    organizationId,
-    count: results.length,
-    results,
-  });
+  try {
+    const results = await bulkEnroll({ organizationId, rows });
+    return res.status(200).json({ organizationId, count: results.length, results });
+  } catch (err) {
+    return res.status(500).json({ error: 'Bulk enrollment failed', message: err.message });
+  }
 });
 
 // PATCH /org-admin/members/:userId/role
