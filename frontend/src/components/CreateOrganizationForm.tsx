@@ -6,7 +6,7 @@ interface CreateOrganizationFormProps {
   ctaLabel?: string;
 }
 
-const CreateOrganizationForm = ({ onSuccess, ctaLabel }: CreateOrganizationFormProps) => {
+const CreateOrganizationForm = ({ onSuccess, ctaLabel = 'Create organization' }: CreateOrganizationFormProps) => {
   const { createOrganization } = useOrganizationApi();
   const [formData, setFormData] = useState({
     name: '',
@@ -82,7 +82,7 @@ const CreateOrganizationForm = ({ onSuccess, ctaLabel }: CreateOrganizationFormP
           disabled={isCreating}
           className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors duration-200 ease-in-out shadow-sm"
         >
-          {isCreating ? 'Creating...' : (ctaLabel || 'Create Organization')}
+          {isCreating ? 'Creating...' : ctaLabel}
         </button>
       </form>
     </div>

@@ -10,6 +10,16 @@ export type ApiError = {
   status?: number;
 };
 
+export type FetchWithToken = <T = any>(
+  endpoint: string,
+  options?: RequestInit,
+  organizationId?: string
+) => Promise<T>;
+
+export type UseApiResult = {
+  fetchWithToken: FetchWithToken;
+};
+
 export class ApiRequestError extends Error {
   status?: number;
 
@@ -20,10 +30,10 @@ export class ApiRequestError extends Error {
   }
 }
 
-export const useApi = () => {
+export const useApi = (): UseApiResult => {
   const { getAccessToken } = useLogto(); // ← getOrganizationToken ya no se necesita
 
-  const fetchWithToken = useMemo(() => async (
+  const fetchWithToken = useMemo<FetchWithToken>(() => async (
     endpoint: string,
     options: RequestInit = {},
     organizationId?: string

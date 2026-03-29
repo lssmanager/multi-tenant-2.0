@@ -3,13 +3,15 @@ import { useParams } from 'react-router-dom';
 import { useOrgMembersApi } from '../../api/orgMembers';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 
+type Role = 'student' | 'teacher' | 'admin';
+
 const OrgInvitePage: React.FC = () => {
   const { orgId: orgIdParam } = useParams();
   const { orgId: currentOrgId, isOrgAdmin } = useCurrentUser();
   const orgId = orgIdParam ?? currentOrgId;
   const orgMembersApi = useOrgMembersApi();
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState<'student' | 'teacher' | 'admin'>('student');
+  const [role, setRole] = useState<Role>('student');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -63,7 +65,7 @@ const OrgInvitePage: React.FC = () => {
           <select
             className="w-full border rounded px-3 py-2"
             value={role}
-            onChange={(e) => setRole(e.target.value as 'student' | 'teacher' | 'admin')}
+            onChange={(e) => setRole(e.target.value as Role)}
           >
             <option value="student">Student</option>
             <option value="teacher">Teacher</option>

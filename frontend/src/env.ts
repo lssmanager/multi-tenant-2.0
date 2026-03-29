@@ -6,7 +6,23 @@ const {
   VITE_RETAIL_ORG_ID,
 } = import.meta.env;
 
-export const APP_ENV = {
+export type AppEnv = {
+  logto: {
+    endpoint: string;
+    appId: string;
+  };
+  api: {
+    baseUrl: string;
+    resourceIndicator: string;
+  };
+  app: {
+    redirectUri: string;
+    signOutRedirectUri: string;
+  };
+  retailOrgId: string;
+};
+
+export const APP_ENV: AppEnv = {
   logto: {
     endpoint: VITE_LOGTO_ENDPOINT,
     appId: VITE_LOGTO_APP_ID,

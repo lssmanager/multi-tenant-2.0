@@ -3,7 +3,7 @@ import { APP_ENV } from '../../env';
 
 const Landing = () => {
   const { signIn } = useLogto();
-  const redirectUri = APP_ENV.app.redirectUri ?? '';
+  const redirectUri = APP_ENV.app.redirectUri;
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-b from-gray-50 to-gray-100">

@@ -1,10 +1,14 @@
 // src/logtoConfig.ts
-import { APP_ENV } from './env';
+import { APP_ENV, type AppEnv } from './env';
+
+const logtoEndpoint: AppEnv["logto"]["endpoint"] = APP_ENV.logto.endpoint;
+const logtoAppId: AppEnv["logto"]["appId"] = APP_ENV.logto.appId;
+const apiResourceIndicator: AppEnv["api"]["resourceIndicator"] = APP_ENV.api.resourceIndicator;
 
 export const logtoConfig = {
-  endpoint: APP_ENV.logto.endpoint,
-  appId: APP_ENV.logto.appId,
-  resources: [APP_ENV.api.resourceIndicator],
+  endpoint: logtoEndpoint,
+  appId: logtoAppId,
+  resources: [apiResourceIndicator],
   scopes: [
     "read:documents",
     "create:documents",
@@ -14,4 +18,4 @@ export const logtoConfig = {
   ],
 };
 
-export const LOGTO_RESOURCE = APP_ENV.api.resourceIndicator;
+export const LOGTO_RESOURCE = apiResourceIndicator;

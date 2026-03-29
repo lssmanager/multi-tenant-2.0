@@ -1,15 +1,16 @@
 // src/lib/apiClient.ts
 import { getApiAccessToken } from "./getApiAccessToken";
 import { LOGTO_RESOURCE } from "../logtoConfig";
-import { APP_ENV } from "../env";
+import { APP_ENV, type AppEnv } from "../env";
 import { useLogto } from "@logto/react";
 
 export function useApiClient() {
   const logtoClient = useLogto();
+  const apiBaseUrl: AppEnv["api"]["baseUrl"] = APP_ENV.api.baseUrl;
 
   async function request<T = any>(method: string, path: string, body?: any): Promise<T> {
     const token = await getApiAccessToken(logtoClient, LOGTO_RESOURCE);
-    const url = `${APP_ENV.api.baseUrl}${path}`;
+    const url = `${apiBaseUrl}${path}`;
     // ...existing code...
     const headers: Record<string, string> = {
       "Authorization": `Bearer ${token}`,

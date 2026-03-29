@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { useOrgMembersApi, OrgMember } from '../../api/orgMembers';
 
+type Role = OrgMember['role'];
+
 const OrgMembersPage = () => {
   const { orgId, currentOrganization, isOrgAdmin, loading: userLoading } = useCurrentUser();
   const { listMembers, updateMemberRole, removeMember } = useOrgMembersApi();
@@ -47,7 +49,7 @@ const OrgMembersPage = () => {
     );
   }
 
-  const handleRoleChange = async (memberId: string, role: OrgMember['role']) => {
+  const handleRoleChange = async (memberId: string, role: Role) => {
     setUpdatingId(memberId);
     try {
       await updateMemberRole(orgId, memberId, role);
@@ -109,7 +111,7 @@ const OrgMembersPage = () => {
                     className="border border-gray-300 rounded px-2 py-1 text-sm"
                     value={member.role}
                     disabled={updatingId === member.id}
-                    onChange={(e) => handleRoleChange(member.id, e.target.value as OrgMember['role'])}
+                    onChange={(e) => handleRoleChange(member.id, e.target.value as Role)}
                   >
                     <option value="student">Student</option>
                     <option value="teacher">Teacher</option>
