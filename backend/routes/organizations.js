@@ -38,6 +38,7 @@ const roleCache = {};
 async function requireSuperAdmin(req, res, next) {
   try {
     if (!req.user || !req.user.id) return res.status(403).json({ error: 'Super-admin role required' });
+    if (req.user.accessContext?.isSuperAdmin) return next();
     const userId = req.user.id;
     const now = Date.now();
     let roles = null;

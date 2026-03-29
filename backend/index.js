@@ -34,6 +34,20 @@ app.use('/roles', rolesRouter);
 app.use('/org-admin', requireAuth(process.env.API_RESOURCE_INDICATOR), requireOrgAdmin, orgAdminRouter);
 app.use('/org', requireAuth(process.env.API_RESOURCE_INDICATOR), requireOrgAdmin, orgAdminRouter);
 
+app.get(
+  "/auth/access-context",
+  requireAuth(process.env.API_RESOURCE_INDICATOR),
+  async (req, res) => {
+    return res.status(200).json({
+      accessContext: req.user.accessContext,
+      activeOrganizationId:
+        req.query?.activeOrganizationId ||
+        req.user.organizationId ||
+        null,
+    });
+  }
+);
+
 // Organizations routes
 app.post(
   "/organizations",

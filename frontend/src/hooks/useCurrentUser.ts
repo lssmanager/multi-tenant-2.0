@@ -48,10 +48,22 @@ export interface CurrentUser {
   isOrgAdmin: boolean;
   isTeacher: boolean;
   isStudent: boolean;
+  accessContext: {
+    isSuperAdmin: boolean;
+    primaryRole: 'super-admin' | 'org-role';
+    globalRoles: string[];
+    organizationRoles: string[];
+    effectivePermissions: string[];
+    effectiveScopes: {
+      shifts?: string[];
+      campuses?: string[];
+      groups?: string[];
+    };
+  };
 }
 
 export const useCurrentUser = (): CurrentUser => {
-  const { isAuthenticated, fetchUserInfo } = useLogto();
+  const { isAuthenticated, fetchUserInfo, getAccessToken } = useLogto();
   const [loading, setLoading] = useState(true);
   const [userInfo, setUserInfo] = useState<LogtoUserInfo | null>(null);
   const [currentOrganization, setCurrentOrganization] = useState<LogtoOrganizationData | null>(null);
@@ -60,6 +72,12 @@ export const useCurrentUser = (): CurrentUser => {
   const [globalRoles, setGlobalRoles] = useState<string[]>([]);
   const [orgRoles, setOrgRoles] = useState<string[]>([]);
   const [impersonationContext, setImpersonationContext] = useState<ImpersonationContext | null>(null);
+  const [effectivePermissions, setEffectivePermissions] = useState<string[]>([]);
+  const [effectiveScopes, setEffectiveScopes] = useState<{
+    shifts?: string[];
+    campuses?: string[];
+    groups?: string[];
+  }>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -71,6 +89,8 @@ export const useCurrentUser = (): CurrentUser => {
       setOrgId(undefined);
       setGlobalRoles([]);
       setOrgRoles([]);
+      setEffectivePermissions([]);
+      setEffectiveScopes({});
     };
 
     const loadUser = async () => {
@@ -108,6 +128,46 @@ export const useCurrentUser = (): CurrentUser => {
         setOrgId(currentOrgId || undefined);
         setGlobalRoles(normalizedGlobalRoles);
         setOrgRoles(currentOrganizationRoles);
+
+        try {
+          const activeOrganizationId =
+            normalizeString(impersonationContext?.orgId) || currentOrgId || '';
+          const token = await getAccessToken(APP_ENV.api.resourceIndicator);
+          const query = activeOrganizationId
+            ? `?activeOrganizationId=${encodeURIComponent(activeOrganizationId)}`
+            : '';
+          const response = await fetch(`${APP_ENV.api.baseUrl}/auth/access-context${query}`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              ...(activeOrganizationId ? { 'x-active-organization-id': activeOrganizationId } : {}),
+            },
+          });
+
+          if (response.ok) {
+            const payload = (await response.json()) as {
+              accessContext?: {
+                globalRoles?: string[];
+                organizationRoles?: string[];
+                effectivePermissions?: string[];
+                effectiveScopes?: {
+                  shifts?: string[];
+                  campuses?: string[];
+                  groups?: string[];
+                };
+              };
+            };
+            setGlobalRoles(normalizeStringList(payload.accessContext?.globalRoles));
+            setOrgRoles(normalizeStringList(payload.accessContext?.organizationRoles));
+            setEffectivePermissions(normalizeStringList(payload.accessContext?.effectivePermissions));
+            setEffectiveScopes(payload.accessContext?.effectiveScopes || {});
+          } else {
+            setEffectivePermissions([]);
+            setEffectiveScopes({});
+          }
+        } catch {
+          setEffectivePermissions([]);
+          setEffectiveScopes({});
+        }
       } catch {
         if (cancelled) return;
         resetState();
@@ -123,7 +183,7 @@ export const useCurrentUser = (): CurrentUser => {
     return () => {
       cancelled = true;
     };
-  }, [isAuthenticated, fetchUserInfo]);
+  }, [isAuthenticated, fetchUserInfo, getAccessToken, impersonationContext?.orgId]);
 
   useEffect(() => {
     const updateFromStorage = () => {
@@ -148,6 +208,14 @@ export const useCurrentUser = (): CurrentUser => {
   const isTeacher = isSuperAdmin || orgRoles.includes('teacher');
   const isStudent = isSuperAdmin || orgRoles.includes('student');
   const isImpersonating = Boolean(isSuperAdmin && impersonatedOrgId);
+  const accessContext = {
+    isSuperAdmin,
+    primaryRole: isSuperAdmin ? ('super-admin' as const) : ('org-role' as const),
+    globalRoles,
+    organizationRoles: orgRoles,
+    effectivePermissions,
+    effectiveScopes,
+  };
 
   return {
     loading,
@@ -166,5 +234,6 @@ export const useCurrentUser = (): CurrentUser => {
     isOrgAdmin,
     isTeacher,
     isStudent,
+    accessContext,
   };
 };

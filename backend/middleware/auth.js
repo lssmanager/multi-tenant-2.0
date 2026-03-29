@@ -1,5 +1,6 @@
 const { createRemoteJWKSet, jwtVerify } = require("jose");
 const { normalizeRoleName } = require("../services/logtoManagement");
+const { resolveEffectiveAccess } = require("../utils/accessResolver");
 
 const getTokenFromHeader = (headers) => {
   const { authorization } = headers;
@@ -96,6 +97,7 @@ const requireOrganizationAccess = ({ requiredScopes = [] } = {}) => {
         organizations: Array.isArray(payload.organizations) ? payload.organizations : [],
         organizationRoles: Array.isArray(payload.organization_roles) ? payload.organization_roles : [],
       };
+      req.user.accessContext = resolveEffectiveAccess(req.user, organizationId);
 
       next();
     } catch (error) {
@@ -129,6 +131,11 @@ const requireAuth = (resource) => {
         organizations: Array.isArray(payload.organizations) ? payload.organizations : [],
         organizationRoles: Array.isArray(payload.organization_roles) ? payload.organization_roles : [],
       };
+      const activeOrganizationId =
+        typeof req.headers["x-active-organization-id"] === "string"
+          ? req.headers["x-active-organization-id"]
+          : req.query?.activeOrganizationId || req.user.organizationId;
+      req.user.accessContext = resolveEffectiveAccess(req.user, activeOrganizationId);
 
       next();
     } catch (error) {

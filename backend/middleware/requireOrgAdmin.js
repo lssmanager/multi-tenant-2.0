@@ -7,6 +7,14 @@ async function requireOrgAdmin(req, res, next) {
     if (!req.user || !req.user.id)
       return res.status(403).json({ error: 'Org admin role required' });
 
+    const accessContext = req.user.accessContext;
+    if (
+      accessContext?.isSuperAdmin ||
+      accessContext?.organizationRoles?.includes('admin')
+    ) {
+      return next();
+    }
+
     const userId = req.user.id;
     const now = Date.now();
     const tokenRoles = Array.isArray(req.user.roles) ? req.user.roles.map(normalizeRoleName) : [];
