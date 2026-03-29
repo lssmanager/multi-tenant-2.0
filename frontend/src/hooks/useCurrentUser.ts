@@ -4,13 +4,34 @@ import { APP_ENV } from '../env';
 
 type LogtoOrganizationData = {
   id?: string;
+  name?: string;
+  description?: string;
 };
+
+type LogtoUserInfo = {
+  roles?: string[];
+  organizations?: string[];
+  organization_data?: LogtoOrganizationData[];
+  organization_roles?: string[];
+} & Record<string, unknown>;
+
+const normalizeString = (value: string | undefined | null) => value?.trim().toLowerCase() ?? '';
+
+const normalizeStringList = (values: string[] | undefined | null) =>
+  Array.from(
+    new Set(
+      (values ?? [])
+        .map((value) => normalizeString(value))
+        .filter((value) => value.length > 0),
+    ),
+  );
 
 export interface CurrentUser {
   loading: boolean;
   isAuthenticated: boolean;
-  userInfo: any;
-  currentOrganization: any;
+  userInfo: LogtoUserInfo | null;
+  currentOrganization: LogtoOrganizationData | null;
+  organizations: string[];
   orgId: string | undefined;
   isSuperAdmin: boolean;
   isRetail: boolean;
@@ -22,45 +43,89 @@ export interface CurrentUser {
 export const useCurrentUser = (): CurrentUser => {
   const { isAuthenticated, fetchUserInfo } = useLogto();
   const [loading, setLoading] = useState(true);
-  const [userInfo, setUserInfo] = useState<any>(null);
-  const [currentOrganization, setCurrentOrganization] = useState<any>(null);
+  const [userInfo, setUserInfo] = useState<LogtoUserInfo | null>(null);
+  const [currentOrganization, setCurrentOrganization] = useState<LogtoOrganizationData | null>(null);
+  const [organizations, setOrganizations] = useState<string[]>([]);
   const [orgId, setOrgId] = useState<string | undefined>(undefined);
-  const [roles, setRoles] = useState<string[]>([]);
+  const [globalRoles, setGlobalRoles] = useState<string[]>([]);
+  const [orgRoles, setOrgRoles] = useState<string[]>([]);
 
   useEffect(() => {
-    if (!isAuthenticated) return;
-    fetchUserInfo().then(info => {
-      setUserInfo(info);
-      const organizationData = Array.isArray(info?.organization_data)
-        ? (info.organization_data as LogtoOrganizationData[])
-        : [];
-      const org = organizationData[0] || null;
-      const organizationRolesClaim = Array.isArray(info?.organization_roles)
-        ? (info.organization_roles as string[])
-        : [];
-      const currentOrgRoles = org
-        ? organizationRolesClaim
-            .filter((role) => role.startsWith(`${org.id}:`))
-            .map((role) => role.split(':')[1])
-        : [];
-      setCurrentOrganization(org);
-      setOrgId(org?.id);
-      setRoles(currentOrgRoles);
-      setLoading(false);
-    });
+    let cancelled = false;
+
+    const resetState = () => {
+      setUserInfo(null);
+      setCurrentOrganization(null);
+      setOrganizations([]);
+      setOrgId(undefined);
+      setGlobalRoles([]);
+      setOrgRoles([]);
+    };
+
+    const loadUser = async () => {
+      if (!isAuthenticated) {
+        resetState();
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+
+      try {
+        const info = (await fetchUserInfo()) as LogtoUserInfo | null;
+        if (cancelled) return;
+
+        const organizationData = Array.isArray(info?.organization_data) ? info.organization_data : [];
+        const currentOrganization = organizationData[0] ?? null;
+        const currentOrgId = normalizeString(currentOrganization?.id);
+
+        const normalizedGlobalRoles = normalizeStringList(info?.roles);
+        const normalizedOrganizations = normalizeStringList(
+          info?.organizations ??
+            organizationData.map((organization) => organization.id).filter((id): id is string => Boolean(id)),
+        );
+        const normalizedOrganizationRoles = normalizeStringList(info?.organization_roles);
+        const currentOrganizationRoles = currentOrgId
+          ? normalizedOrganizationRoles
+              .filter((roleClaim) => roleClaim.startsWith(`${currentOrgId}:`))
+              .map((roleClaim) => roleClaim.slice(currentOrgId.length + 1))
+          : [];
+
+        setUserInfo(info);
+        setCurrentOrganization(currentOrganization);
+        setOrganizations(normalizedOrganizations);
+        setOrgId(currentOrgId || undefined);
+        setGlobalRoles(normalizedGlobalRoles);
+        setOrgRoles(currentOrganizationRoles);
+      } catch {
+        if (cancelled) return;
+        resetState();
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void loadUser();
+
+    return () => {
+      cancelled = true;
+    };
   }, [isAuthenticated, fetchUserInfo]);
 
-  const isSuperAdmin = !orgId;
-  const isRetail = orgId === APP_ENV.retailOrgId;
-  const isOrgAdmin = roles.includes('admin');
-  const isTeacher = roles.includes('teacher');
-  const isStudent = roles.includes('student');
+  const isSuperAdmin = globalRoles.includes('super-admin');
+  const isRetail = orgId === normalizeString(APP_ENV.retailOrgId);
+  const isOrgAdmin = isSuperAdmin || orgRoles.includes('admin');
+  const isTeacher = isSuperAdmin || orgRoles.includes('teacher');
+  const isStudent = isSuperAdmin || orgRoles.includes('student');
 
   return {
     loading,
     isAuthenticated,
     userInfo,
     currentOrganization,
+    organizations,
     orgId,
     isSuperAdmin,
     isRetail,
