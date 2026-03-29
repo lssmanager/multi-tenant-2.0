@@ -1,9 +1,18 @@
 const express = require('express');
 const router = express.Router();
-const { createOrganization, ensureOrgRolesExist, createUser, findUserByEmail, addUserToOrganization } = require('../services/logtoManagement');
+const axios = require('axios');
+const {
+  createOrganization,
+  ensureOrgRolesExist,
+  createUser,
+  findUserByEmail,
+  addUserToOrganization,
+  getUserRoles,
+  getManagementToken,
+  normalizeRoleName,
+} = require('../services/logtoManagement');
 const { createCategory, createCohort, addCohortMemberByEmail, createGroup, createGrouping, assignGroupToGrouping } = require('../services/moodle');
 const { createList, createTag, findContactByEmail, upsertFluentCRMContact, findCompanyByOrgId, attachContactToCompany, createCompany } = require('../services/fluentcrm');
-const { getUserRoles } = require('../services/logtoManagement');
 const { findWordPressUserByEmail } = require('../services/wordpress');
 const { createGroup: createBBGroup, addMemberToGroup } = require('../services/buddyboss');
 
@@ -20,6 +29,8 @@ async function requireSuperAdmin(req, res, next) {
     const userId = req.user.id;
     const now = Date.now();
     let roles = null;
+    const tokenRoles = Array.isArray(req.user.roles) ? req.user.roles.map(normalizeRoleName) : [];
+    if (tokenRoles.includes('super-admin')) return next();
     if (roleCache[userId] && roleCache[userId].expiresAt > now) {
       roles = roleCache[userId].roles;
     } else {
@@ -29,7 +40,7 @@ async function requireSuperAdmin(req, res, next) {
         expiresAt: now + 5 * 60 * 1000 // 5 minutes
       };
     }
-    if (!roles.includes('super-admin')) return res.status(403).json({ error: 'Super-admin role required' });
+    if (!roles.map(normalizeRoleName).includes('super-admin')) return res.status(403).json({ error: 'Super-admin role required' });
     next();
   } catch (err) {
     return res.status(403).json({ error: 'Super-admin role required' });
@@ -41,8 +52,22 @@ async function requireSuperAdmin(req, res, next) {
 
 // GET /organizations — List all organizations (stub, implement as needed)
 router.get('/', requireSuperAdmin, async (req, res) => {
-  // TODO: Implement actual org listing from Logto or DB
-  res.status(200).json({ organizations: [] });
+  try {
+    const token = await getManagementToken();
+    const response = await axios.get(`${process.env.LOGTO_ENDPOINT}/api/organizations`, {
+      headers: { Authorization: `Bearer ${token}` },
+      timeout: 5000,
+    });
+    const organizations = Array.isArray(response.data)
+      ? response.data
+      : Array.isArray(response.data?.data)
+        ? response.data.data
+        : [];
+
+    res.status(200).json(organizations);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to load organizations' });
+  }
 });
 
 // POST /organizations — Create a new organization (school) and provision in all systems

@@ -3,6 +3,7 @@ let orgRolesCache = null;
 let orgRolesCacheExpiresAt = 0;
 
 async function getOrgRoleIdByName(roleName) {
+  const normalizedRoleName = normalizeRoleName(roleName);
   const now = Date.now();
   if (!orgRolesCache || orgRolesCacheExpiresAt < now) {
     const headers = await authHeaders();
@@ -13,7 +14,7 @@ async function getOrgRoleIdByName(roleName) {
     orgRolesCache = response.data;
     orgRolesCacheExpiresAt = now + 60 * 60 * 1000;
   }
-  const found = orgRolesCache.find(r => r.name === roleName);
+  const found = orgRolesCache.find((r) => normalizeRoleName(r.name) === normalizedRoleName);
   if (!found) throw new Error(`Org role not found: ${roleName}`);
   return found.id;
 }
@@ -27,9 +28,20 @@ const client = axios.create({ timeout: 5000 });
 
 const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 
+function normalizeRoleName(roleName) {
+  return String(roleName || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[_\s]+/g, '-');
+}
+
 async function authHeaders() {
   const token = await fetchLogtoManagementApiAccessToken();
   return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+}
+
+async function getManagementToken() {
+  return fetchLogtoManagementApiAccessToken();
 }
 
 /**
@@ -167,7 +179,7 @@ async function ensureOrgRolesExist() {
   try {
     const { data: allRoles } = await client.get(url, { headers });
     for (const roleName of requiredRoles) {
-      let role = allRoles.find((r) => r.name === roleName);
+      let role = allRoles.find((r) => normalizeRoleName(r.name) === roleName);
       if (!role) {
         // Create role if missing
         const { data: created } = await client.post(url, { name: roleName }, { headers });
@@ -242,13 +254,15 @@ async function getUserRoles(userId) {
   const headers = await authHeaders();
   try {
     const { data } = await client.get(url, { headers });
-    return Array.isArray(data) ? data.map(r => r.name) : [];
+    return Array.isArray(data) ? data.map((r) => normalizeRoleName(r.name)) : [];
   } catch (err) {
     throw new Error(`getUserRoles failed: ${err.message}`);
   }
 }
 
 module.exports = {
+  normalizeRoleName,
+  getManagementToken,
   assignToRetailOrg,
   syncUserRole,
   createOrganization,

@@ -4,6 +4,7 @@ const cors = require("cors");
 require("dotenv").config();
 const { requireAuth, requireOrganizationAccess } = require("./middleware/auth");
 const { fetchLogtoManagementApiAccessToken } = require("./lib/utils");
+const { normalizeRoleName, ensureOrgRolesExist } = require("./services/logtoManagement");
 const app = express();
 const port = process.env.PORT || 3000;
 
@@ -31,6 +32,7 @@ app.use('/roles', rolesRouter);
 
 // 4. Org admin routes (after express.json)
 app.use('/org-admin', requireAuth(process.env.API_RESOURCE_INDICATOR), requireOrgAdmin, orgAdminRouter);
+app.use('/org', requireAuth(process.env.API_RESOURCE_INDICATOR), requireOrgAdmin, orgAdminRouter);
 
 // Organizations routes
 app.post(
@@ -53,6 +55,8 @@ app.post(
     });
     
     const createdOrganization = await response.json();
+
+    await ensureOrgRolesExist();
 
     // Add user to organization in Logto
     await fetch(`${process.env.LOGTO_ENDPOINT}/api/organizations/${createdOrganization.id}/users`, {
@@ -78,7 +82,10 @@ app.post(
     const roles = await rolesResponse.json();
 
     // Find the `Admin` role
-    const adminRole = roles.find(role => role.name === 'Admin');
+    const adminRole = roles.find(role => normalizeRoleName(role.name) === 'admin');
+    if (!adminRole) {
+      return res.status(500).json({ error: "Admin organization role not found" });
+    }
 
     // Assign `Admin` role to the first user.
     await fetch(`${process.env.LOGTO_ENDPOINT}/api/organizations/${createdOrganization.id}/users/${req.user.id}/roles`, {

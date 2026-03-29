@@ -1,4 +1,5 @@
 const { createRemoteJWKSet, jwtVerify } = require("jose");
+const { normalizeRoleName } = require("../services/logtoManagement");
 
 const getTokenFromHeader = (headers) => {
   const { authorization } = headers;
@@ -91,6 +92,9 @@ const requireOrganizationAccess = ({ requiredScopes = [] } = {}) => {
       req.user = {
         id: payload.sub,
         organizationId,
+        roles: Array.isArray(payload.roles) ? payload.roles.map(normalizeRoleName) : [],
+        organizations: Array.isArray(payload.organizations) ? payload.organizations : [],
+        organizationRoles: Array.isArray(payload.organization_roles) ? payload.organization_roles : [],
       };
 
       next();
@@ -120,6 +124,10 @@ const requireAuth = (resource) => {
       req.user = {
         id: payload.sub,
         scopes: payload.scope?.split(" ") || [],
+        organizationId: payload.organization_id || payload.organizationId || undefined,
+        roles: Array.isArray(payload.roles) ? payload.roles.map(normalizeRoleName) : [],
+        organizations: Array.isArray(payload.organizations) ? payload.organizations : [],
+        organizationRoles: Array.isArray(payload.organization_roles) ? payload.organization_roles : [],
       };
 
       next();

@@ -1,4 +1,4 @@
-const { getUserRoles } = require('../services/logtoManagement');
+const { getUserRoles, normalizeRoleName } = require('../services/logtoManagement');
 
 const orgAdminCache = {};
 
@@ -9,6 +9,11 @@ async function requireOrgAdmin(req, res, next) {
 
     const userId = req.user.id;
     const now = Date.now();
+    const tokenRoles = Array.isArray(req.user.roles) ? req.user.roles.map(normalizeRoleName) : [];
+    if (tokenRoles.includes('super-admin') || tokenRoles.includes('admin')) {
+      return next();
+    }
+
     let roles = null;
 
     if (orgAdminCache[userId] && orgAdminCache[userId].expiresAt > now) {
