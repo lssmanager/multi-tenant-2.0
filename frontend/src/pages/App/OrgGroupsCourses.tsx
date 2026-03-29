@@ -135,6 +135,7 @@ export default function OrgGroupsCourses() {
     isOrgAdmin,
     isSuperAdmin,
     isImpersonating,
+    accessContext,
     currentOrganization,
     impersonatedOrgName,
     loading: userLoading,
@@ -160,7 +161,9 @@ export default function OrgGroupsCourses() {
   });
 
   const orgName = impersonatedOrgName || currentOrganization?.name || 'School';
-  const canCreate = isOrgAdmin && (!isSuperAdmin || isImpersonating);
+  const hasActiveOrgAdminRole = accessContext.organizationRoles.includes('admin');
+  const canCreate =
+    isOrgAdmin && (!isSuperAdmin || isImpersonating || hasActiveOrgAdminRole);
 
   const selectedCourse = useMemo(
     () => courses.find((course) => course.id === selectedCourseId) || null,
@@ -335,7 +338,7 @@ export default function OrgGroupsCourses() {
     );
   }
 
-  if (isSuperAdmin && !isImpersonating) {
+  if (isSuperAdmin && !isImpersonating && !hasActiveOrgAdminRole) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-8">
         <p className="text-[#031C44]">

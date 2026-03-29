@@ -8,17 +8,20 @@ async function requireOrgAdmin(req, res, next) {
       return res.status(403).json({ error: 'Org admin role required' });
 
     const accessContext = req.user.accessContext;
-    if (
-      accessContext?.isSuperAdmin ||
-      accessContext?.organizationRoles?.includes('admin')
-    ) {
+    const activeOrganizationId =
+      accessContext?.effectiveOrganizationId || req.user.organizationId;
+    if (!activeOrganizationId) {
+      return res.status(403).json({ error: 'Org admin role required' });
+    }
+
+    if (accessContext?.organizationRoles?.includes('admin')) {
       return next();
     }
 
     const userId = req.user.id;
     const now = Date.now();
     const tokenRoles = Array.isArray(req.user.roles) ? req.user.roles.map(normalizeRoleName) : [];
-    if (tokenRoles.includes('super-admin') || tokenRoles.includes('admin')) {
+    if (tokenRoles.includes('admin')) {
       return next();
     }
 
@@ -31,7 +34,7 @@ async function requireOrgAdmin(req, res, next) {
       orgAdminCache[userId] = { roles, expiresAt: now + 5 * 60 * 1000 };
     }
 
-    if (!roles.includes('admin') && !roles.includes('super-admin'))
+    if (!roles.includes('admin'))
       return res.status(403).json({ error: 'Org admin role required' });
 
     next();

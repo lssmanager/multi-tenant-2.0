@@ -89,15 +89,43 @@ const requireOrganizationAccess = ({ requiredScopes = [] } = {}) => {
         throw new Error("Insufficient permissions");
       }
 
+      const headerActiveOrganizationId =
+        typeof req.headers["x-active-organization-id"] === "string"
+          ? req.headers["x-active-organization-id"]
+          : undefined;
+      const headerImpersonationOrganizationId =
+        typeof req.headers["x-impersonation-organization-id"] === "string"
+          ? req.headers["x-impersonation-organization-id"]
+          : undefined;
+      const queryActiveOrganizationId =
+        typeof req.query?.activeOrganizationId === "string"
+          ? req.query.activeOrganizationId
+          : undefined;
+      const queryImpersonationOrganizationId =
+        typeof req.query?.impersonationOrganizationId === "string"
+          ? req.query.impersonationOrganizationId
+          : undefined;
+      const effectiveOrganizationId =
+        headerImpersonationOrganizationId ||
+        queryImpersonationOrganizationId ||
+        headerActiveOrganizationId ||
+        queryActiveOrganizationId ||
+        organizationId;
+
       // Add organization info to request
       req.user = {
         id: payload.sub,
-        organizationId,
+        organizationId: effectiveOrganizationId || organizationId,
         roles: Array.isArray(payload.roles) ? payload.roles.map(normalizeRoleName) : [],
         organizations: Array.isArray(payload.organizations) ? payload.organizations : [],
         organizationRoles: Array.isArray(payload.organization_roles) ? payload.organization_roles : [],
+        impersonationOrganizationId:
+          headerImpersonationOrganizationId || queryImpersonationOrganizationId || undefined,
       };
-      req.user.accessContext = resolveEffectiveAccess(req.user, organizationId);
+      req.user.accessContext = resolveEffectiveAccess(
+        req.user,
+        effectiveOrganizationId || organizationId
+      );
 
       next();
     } catch (error) {
@@ -123,19 +151,45 @@ const requireAuth = (resource) => {
       const payload = await verifyJwt(token, resource);
 
       // Add user info to request
+      const headerActiveOrganizationId =
+        typeof req.headers["x-active-organization-id"] === "string"
+          ? req.headers["x-active-organization-id"]
+          : undefined;
+      const headerImpersonationOrganizationId =
+        typeof req.headers["x-impersonation-organization-id"] === "string"
+          ? req.headers["x-impersonation-organization-id"]
+          : undefined;
+      const queryActiveOrganizationId =
+        typeof req.query?.activeOrganizationId === "string"
+          ? req.query.activeOrganizationId
+          : undefined;
+      const queryImpersonationOrganizationId =
+        typeof req.query?.impersonationOrganizationId === "string"
+          ? req.query.impersonationOrganizationId
+          : undefined;
+      const payloadOrganizationId =
+        payload.organization_id || payload.organizationId || undefined;
+      const effectiveOrganizationId =
+        headerImpersonationOrganizationId ||
+        queryImpersonationOrganizationId ||
+        headerActiveOrganizationId ||
+        queryActiveOrganizationId ||
+        payloadOrganizationId;
+
       req.user = {
         id: payload.sub,
         scopes: payload.scope?.split(" ") || [],
-        organizationId: payload.organization_id || payload.organizationId || undefined,
+        organizationId: effectiveOrganizationId,
         roles: Array.isArray(payload.roles) ? payload.roles.map(normalizeRoleName) : [],
         organizations: Array.isArray(payload.organizations) ? payload.organizations : [],
         organizationRoles: Array.isArray(payload.organization_roles) ? payload.organization_roles : [],
+        impersonationOrganizationId:
+          headerImpersonationOrganizationId || queryImpersonationOrganizationId || undefined,
       };
-      const activeOrganizationId =
-        typeof req.headers["x-active-organization-id"] === "string"
-          ? req.headers["x-active-organization-id"]
-          : req.query?.activeOrganizationId || req.user.organizationId;
-      req.user.accessContext = resolveEffectiveAccess(req.user, activeOrganizationId);
+      req.user.accessContext = resolveEffectiveAccess(
+        req.user,
+        effectiveOrganizationId
+      );
 
       next();
     } catch (error) {

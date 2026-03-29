@@ -140,6 +140,9 @@ export const useCurrentUser = (): CurrentUser => {
             headers: {
               Authorization: `Bearer ${token}`,
               ...(activeOrganizationId ? { 'x-active-organization-id': activeOrganizationId } : {}),
+              ...(impersonationContext?.orgId
+                ? { 'x-impersonation-organization-id': impersonationContext.orgId }
+                : {}),
             },
           });
 

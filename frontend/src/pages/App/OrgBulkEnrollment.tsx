@@ -153,6 +153,7 @@ export default function OrgBulkEnrollment() {
     isOrgAdmin,
     isSuperAdmin,
     isImpersonating,
+    accessContext,
     currentOrganization,
     impersonatedOrgName,
     loading: userLoading,
@@ -171,6 +172,7 @@ export default function OrgBulkEnrollment() {
   const [results, setResults] = useState<ProcessResult[]>([]);
 
   const orgName = impersonatedOrgName || currentOrganization?.name || 'School';
+  const hasActiveOrgAdminRole = accessContext.organizationRoles.includes('admin');
 
   const loadReferenceData = useCallback(async () => {
     if (userLoading || !effectiveOrgId || !isOrgAdmin) {
@@ -454,7 +456,7 @@ export default function OrgBulkEnrollment() {
     );
   }
 
-  if (isSuperAdmin && !isImpersonating) {
+  if (isSuperAdmin && !isImpersonating && !hasActiveOrgAdminRole) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-8">
         <p className="text-[#031C44]">Super-admin must impersonate an organization admin to use bulk enrollment.</p>

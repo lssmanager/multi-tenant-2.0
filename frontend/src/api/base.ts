@@ -1,6 +1,7 @@
 import { useLogto } from "@logto/react";
 import { useMemo } from "react";
 import { APP_ENV } from "../env";
+import { getImpersonationContext } from "../lib/impersonation";
 
 const API_BASE_URL = APP_ENV.api.baseUrl;
 const DOCUMIND_API_RESOURCE_INDICATOR = APP_ENV.api.resourceIndicator;
@@ -55,12 +56,17 @@ export const useApi = (): UseApiResult => {
             : "Failed to get access token"
         );
       }
+      const impersonationContext = getImpersonationContext();
 
       const response = await fetch(`${API_BASE_URL}${endpoint}`, {
         ...options,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
+          ...(organizationId ? { 'x-active-organization-id': organizationId } : {}),
+          ...(impersonationContext?.orgId
+            ? { 'x-impersonation-organization-id': impersonationContext.orgId }
+            : {}),
           ...options.headers,
         },
       });

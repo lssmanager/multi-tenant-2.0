@@ -1,5 +1,7 @@
 const normalizeRole = (value) =>
   typeof value === "string" ? value.trim().toLowerCase() : "";
+const normalizeOrgId = (value) =>
+  typeof value === "string" ? value.trim() : "";
 
 const normalizeArray = (values) => {
   if (!Array.isArray(values)) return [];
@@ -10,17 +12,26 @@ const normalizeArray = (values) => {
 
 const parseOrganizationRolesByOrg = (organizationRoles) => {
   const map = new Map();
-  normalizeArray(organizationRoles).forEach((entry) => {
+  if (!Array.isArray(organizationRoles)) return map;
+  organizationRoles.forEach((entryValue) => {
+    if (typeof entryValue !== "string") return;
+    const entry = entryValue.trim();
+    if (!entry) return;
     const separatorIndex = entry.indexOf(":");
     if (separatorIndex <= 0 || separatorIndex >= entry.length - 1) return;
     const orgId = entry.slice(0, separatorIndex).trim();
-    const role = entry.slice(separatorIndex + 1).trim();
+    const role = normalizeRole(entry.slice(separatorIndex + 1));
     if (!orgId || !role) return;
     if (!map.has(orgId)) map.set(orgId, new Set());
     map.get(orgId).add(role);
   });
   return map;
 };
+
+const ORG_ROLE_KEYS = new Set(["admin", "teacher", "student", "coordinator"]);
+
+const normalizeOrgRoleList = (values) =>
+  normalizeArray(values).filter((role) => ORG_ROLE_KEYS.has(role));
 
 const ORG_ROLE_PERMISSIONS = {
   admin: [
@@ -112,17 +123,38 @@ const permissionsFromOrganizationRoles = (organizationRoles) => {
 };
 
 const resolveEffectiveAccess = (user, activeOrganizationId) => {
-  const globalRoles = normalizeArray(user?.roles);
-  const isSuperAdmin = globalRoles.includes("super-admin");
+  const allTokenRoles = normalizeArray(user?.roles);
+  const activeOrgIdFromInput =
+    typeof activeOrganizationId === "string" ? activeOrganizationId.trim() : "";
+  const impersonationOrganizationId = normalizeOrgId(
+    user?.impersonationOrganizationId || user?.impersonation?.organizationId
+  );
+  const effectiveOrganizationId =
+    impersonationOrganizationId || activeOrgIdFromInput;
+  const isImpersonating = Boolean(impersonationOrganizationId);
 
   const organizationRolesByOrg = parseOrganizationRolesByOrg(
     user?.organizationRoles || user?.organization_roles
   );
-  const normalizedActiveOrgId =
-    typeof activeOrganizationId === "string" ? activeOrganizationId.trim() : "";
-  const organizationRoles = normalizedActiveOrgId
-    ? Array.from(organizationRolesByOrg.get(normalizedActiveOrgId) || [])
+  const prefixedOrganizationRoles = effectiveOrganizationId
+    ? Array.from(organizationRolesByOrg.get(effectiveOrganizationId) || [])
     : [];
+  const organizationRolesFromClaims = normalizeOrgRoleList(
+    user?.organizationRoles || user?.organization_roles
+  );
+  const organizationRolesFromTokenRoles = normalizeOrgRoleList(allTokenRoles);
+  const organizationRoles = effectiveOrganizationId
+    ? Array.from(
+        new Set([
+          ...prefixedOrganizationRoles,
+          ...organizationRolesFromClaims,
+          ...organizationRolesFromTokenRoles,
+        ])
+      )
+    : [];
+
+  const globalRoles = allTokenRoles.filter((role) => !ORG_ROLE_KEYS.has(role));
+  const isSuperAdmin = globalRoles.includes("super-admin");
 
   const globalPermissions = globalRoles.flatMap(
     (role) => GLOBAL_ROLE_PERMISSIONS[role] || []
@@ -145,7 +177,7 @@ const resolveEffectiveAccess = (user, activeOrganizationId) => {
     ];
   }
 
-  const effectiveScopes = parseScopeClaimsForOrg(user, normalizedActiveOrgId);
+  const effectiveScopes = parseScopeClaimsForOrg(user, effectiveOrganizationId);
 
   return {
     isSuperAdmin,
@@ -154,6 +186,9 @@ const resolveEffectiveAccess = (user, activeOrganizationId) => {
     organizationRoles,
     effectivePermissions: Array.from(new Set(effectivePermissions)),
     effectiveScopes,
+    activeOrganizationId: activeOrgIdFromInput || undefined,
+    effectiveOrganizationId: effectiveOrganizationId || undefined,
+    isImpersonating,
   };
 };
 
