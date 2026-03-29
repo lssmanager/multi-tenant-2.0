@@ -9,7 +9,7 @@ interface Member {
   name: string;
   email: string;
   role: Role;
-  status: 'active' | 'invited';
+  status: 'active' | 'invited' | 'deactivated';
 }
 
 const roleOptions: { value: Role; label: string }[] = [

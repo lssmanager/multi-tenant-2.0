@@ -277,9 +277,14 @@ export default function OrgBulkEnrollment() {
         issues.push('invalid email format');
       }
 
-      const resolvedTeacher =
-        (teacherId && teacherById.get(teacherId.toLowerCase())) ||
-        (teacherEmail && teacherByEmail.get(teacherEmail));
+      const resolvedTeacherById = teacherId
+        ? teacherById.get(teacherId.toLowerCase()) ?? null
+        : null;
+      const resolvedTeacherByEmail = teacherEmail
+        ? teacherByEmail.get(teacherEmail) ?? null
+        : null;
+      const resolvedTeacher: TeacherOption | null =
+        resolvedTeacherById ?? resolvedTeacherByEmail;
 
       if (!teacherId && !teacherEmail) {
         issues.push('teacher_id or teacher_email is required');
@@ -287,9 +292,14 @@ export default function OrgBulkEnrollment() {
         issues.push('teacher not found');
       }
 
-      const resolvedCourse =
-        (courseId && courseById.get(courseId.toLowerCase())) ||
-        (courseName && courseByName.get(courseName.toLowerCase()));
+      const resolvedCourseById = courseId
+        ? courseById.get(courseId.toLowerCase()) ?? null
+        : null;
+      const resolvedCourseByName = courseName
+        ? courseByName.get(courseName.toLowerCase()) ?? null
+        : null;
+      const resolvedCourse: CourseOption | null =
+        resolvedCourseById ?? resolvedCourseByName;
 
       if (!courseId && !courseName) {
         issues.push('course_id or course_name is required');
