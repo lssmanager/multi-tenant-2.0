@@ -2,7 +2,9 @@ import {
   LogtoProvider,
   LogtoConfig,
 } from "@logto/react";
+import { useEffect } from "react";
 import { Routes, Route } from "react-router-dom";
+import { useLogto } from "@logto/react";
 import Landing from "./Landing";
 import Dashboard from "./Dashboard";
 import Callback from "../Callback";
@@ -19,7 +21,13 @@ const config: LogtoConfig = {
   endpoint: import.meta.env.VITE_LOGTO_ENDPOINT,
   appId: import.meta.env.VITE_LOGTO_APP_ID,
   resources: [import.meta.env.VITE_API_URL],
-  scopes: ["read:documents", "create:documents"],
+  scopes: [
+    "read:documents",
+    "create:documents",
+    "roles",
+    "urn:logto:scope:organizations",
+    "urn:logto:scope:organization_roles",
+  ],
 };
 
 function App() {
@@ -45,6 +53,18 @@ function NotFound() {
 
 function AppContent() {
   const { loading, isAuthenticated, isSuperAdmin, isOrgAdmin } = useCurrentUser();
+  const { getIdTokenClaims } = useLogto();
+
+  useEffect(() => {
+    (async () => {
+      if (!isAuthenticated) return;
+      const claims = await getIdTokenClaims();
+      console.log('ID token claims:', claims);
+      console.log('roles:', claims?.roles);
+      console.log('organization_roles:', claims?.organization_roles);
+      console.log('organizations:', claims?.organizations);
+    })();
+  }, [isAuthenticated, getIdTokenClaims]);
 
   if (!isAuthenticated) {
     return <Landing />;
