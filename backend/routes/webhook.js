@@ -38,6 +38,12 @@ function verifySignature(req) {
 }
 
 // POST /webhook/logto
+router.post('/logto', (req, res, next) => {
+  if (!verifySignature(req)) {
+    return res.status(401).json({ error: 'Invalid signature' });
+  }
+  next();
+});
 router.post('/', async (req, res) => {
   // 1. Verify HMAC signature
   if (!verifySignature(req)) {

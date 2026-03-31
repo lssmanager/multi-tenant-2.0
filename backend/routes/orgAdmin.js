@@ -48,10 +48,18 @@ const buildCourseSnapshot = (organizationId) => ([
 const { listOrgMembers } = require('../services/orgMembers');
 // GET /org-admin/members
 router.get('/members', async (req, res) => {
-  const organizationId = getOrganizationId(req);
-  if (!organizationId) {
-    return res.status(400).json({ error: 'Organization context missing' });
-  }
+    try {
+      const members = await listOrgMembers(req);
+      const organizationId = req.user?.accessContext?.effectiveOrganizationId || req.user?.organizationId;
+      return res.status(200).json({ organizationId, members });
+    } catch (err) {
+      const organizationId = req.user?.accessContext?.effectiveOrganizationId || req.user?.organizationId;
+      return res.status(200).json({
+        organizationId,
+        members: [],
+        error: err.message,
+      });
+    }
   try {
     const members = await listOrgMembers(organizationId);
     return res.status(200).json({ organizationId, members });

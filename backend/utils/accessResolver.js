@@ -28,39 +28,11 @@ const parseOrganizationRolesByOrg = (organizationRoles) => {
   return map;
 };
 
-const ORG_ROLE_KEYS = new Set(["admin", "teacher", "student", "coordinator"]);
+
+const { ORG_ROLE_KEYS, ORG_ROLE_PERMISSIONS } = require('../constants/roles');
 
 const normalizeOrgRoleList = (values) =>
-  normalizeArray(values).filter((role) => ORG_ROLE_KEYS.has(role));
-
-const ORG_ROLE_PERMISSIONS = {
-  admin: [
-    "read:members",
-    "invite:member",
-    "remove:member",
-    "change:member_role",
-    "manage:groups",
-    "manage:bulk_enrollment",
-    "read:groups",
-    "read:documents",
-    "write:documents",
-    "delete:documents",
-  ],
-  teacher: [
-    "read:assigned_groups",
-    "read:assigned_students",
-    "read:own_groups",
-    "read:own_content",
-    "read:documents",
-  ],
-  student: ["read:own_content", "read:documents"],
-  coordinator: [
-    "read:members",
-    "read:groups",
-    "read:documents",
-    "read:assigned_students",
-  ],
-};
+  normalizeArray(values).filter((role) => ORG_ROLE_KEYS.includes(role));
 
 const GLOBAL_ROLE_PERMISSIONS = {
   "super-admin": [

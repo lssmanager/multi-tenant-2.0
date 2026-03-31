@@ -1,20 +1,17 @@
 
-let orgRolesCache = null;
-let orgRolesCacheExpiresAt = 0;
+const { getCachedOrgRoles } = require('../utils/roleCache');
 
 async function getOrgRoleIdByName(roleName) {
   const normalizedRoleName = normalizeRoleName(roleName);
-  const now = Date.now();
-  if (!orgRolesCache || orgRolesCacheExpiresAt < now) {
-    const headers = await authHeaders();
+  const headers = await authHeaders();
+  const allRoles = await getCachedOrgRoles(async () => {
     const response = await axios.get(
       `${process.env.LOGTO_ENDPOINT}/api/organization-roles`,
       { headers, timeout: 5000 }
     );
-    orgRolesCache = response.data;
-    orgRolesCacheExpiresAt = now + 60 * 60 * 1000;
-  }
-  const found = orgRolesCache.find((r) => normalizeRoleName(r.name) === normalizedRoleName);
+    return response.data;
+  });
+  const found = allRoles.find((r) => normalizeRoleName(r.name) === normalizedRoleName);
   if (!found) throw new Error(`Org role not found: ${roleName}`);
   return found.id;
 }
@@ -78,12 +75,14 @@ async function assignToRetailOrg(userId) {
         await doRequest();
         console.log(JSON.stringify({ action: 'assignToRetailOrg', userId, orgId, status: 'ok' }));
       } catch (retryErr) {
-        console.log(JSON.stringify({ action: 'assignToRetailOrg', userId, orgId, status: 'error', message: retryErr.message }));
+        // Do not log sensitive details
+        console.log(JSON.stringify({ action: 'assignToRetailOrg', userId, orgId, status: 'error', message: 'Retry failed' }));
       }
       return;
     }
 
-    console.log(JSON.stringify({ action: 'assignToRetailOrg', userId, orgId, status: 'error', message: err.message }));
+    // Do not log sensitive details
+    console.log(JSON.stringify({ action: 'assignToRetailOrg', userId, orgId, status: 'error', message: 'Request failed' }));
   }
 }
 

@@ -44,15 +44,12 @@ async function requireSuperAdmin(req, res, next) {
     let roles = null;
     const tokenRoles = Array.isArray(req.user.roles) ? req.user.roles.map(normalizeRoleName) : [];
     if (tokenRoles.includes('super-admin')) return next();
-    if (roleCache[userId] && roleCache[userId].expiresAt > now) {
-      roles = roleCache[userId].roles;
-    } else {
-      roles = await getUserRoles(userId);
-      roleCache[userId] = {
-        roles,
-        expiresAt: now + 5 * 60 * 1000 // 5 minutes
-      };
-    }
+    // Always re-check roles on sensitive actions, do not trust cache alone
+    roles = await getUserRoles(userId);
+    roleCache[userId] = {
+      roles,
+      expiresAt: now + 5 * 60 * 1000 // 5 minutes
+    };
     if (!roles.map(normalizeRoleName).includes('super-admin')) return res.status(403).json({ error: 'Super-admin role required' });
     next();
   } catch (err) {
@@ -63,20 +60,12 @@ async function requireSuperAdmin(req, res, next) {
 // --- Admin Organization Management Routes ---
 
 
-// GET /organizations — List all organizations (stub, implement as needed)
+const { listOrganizations } = require('../services/organizationService');
+// GET /organizations — List all organizations
 router.get('/', requireSuperAdmin, async (req, res) => {
   try {
     const token = await getManagementToken();
-    const response = await axios.get(`${process.env.LOGTO_ENDPOINT}/api/organizations`, {
-      headers: { Authorization: `Bearer ${token}` },
-      timeout: 5000,
-    });
-    const organizations = Array.isArray(response.data)
-      ? response.data
-      : Array.isArray(response.data?.data)
-        ? response.data.data
-        : [];
-
+    const organizations = await listOrganizations(token);
     res.status(200).json(organizations);
   } catch (err) {
     res.status(500).json({ error: 'Failed to load organizations' });

@@ -69,14 +69,14 @@ const requireOrganizationAccess = ({ requiredScopes = [] } = {}) => {
       // Extract the token
       const token = getTokenFromHeader(req.headers);
 
-      // Dynamically get the audience from the token
-      const { aud } = decodeJwtPayload(token);
-      if (!aud) {
-        throw new Error("Missing audience in token");
+      // Always use the expected audience from config, never from token
+      const expectedAudience = process.env.API_RESOURCE_INDICATOR;
+      if (!expectedAudience) {
+        throw new Error("API resource indicator (audience) not configured");
       }
 
-      // Verify the token with the audience
-      const payload = await verifyJwt(token, process.env.API_RESOURCE_INDICATOR);
+      // Verify the token with the expected audience
+      const payload = await verifyJwt(token, expectedAudience);
 
       // Extract organization ID from the audience claim
       const organizationId = payload.organization_id;

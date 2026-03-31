@@ -24,19 +24,28 @@ function mapSubscriptionToRole(subscriptionName, event) {
 
 // POST /roles/sync — called by FluentCRM Outgoing Webhook
 router.post('/sync', async (req, res) => {
-  // 1. Verify X-Webhook-Secret header
+  // 1. Verify X-Webhook-Secret header using timing-safe comparison
   const secret = req.headers['x-webhook-secret'];
-  if (!secret || secret !== process.env.FLUENTCRM_WEBHOOK_SECRET) {
+  const expectedSecret = process.env.FLUENTCRM_WEBHOOK_SECRET;
+  if (!secret || !expectedSecret) {
+    return res.status(401).json({ error: 'Invalid webhook secret' });
+  }
+  const secretBuf = Buffer.from(secret);
+  const expectedBuf = Buffer.from(expectedSecret);
+  if (secretBuf.length !== expectedBuf.length || !require('crypto').timingSafeEqual(secretBuf, expectedBuf)) {
     return res.status(401).json({ error: 'Invalid webhook secret' });
   }
 
   const { event, contact } = req.body || {};
-  if (!contact) {
-    console.log(JSON.stringify({ action: 'rolesSync', status: 'error', message: 'No contact in payload' }));
+  if (!event || typeof event !== 'string' || !contact || typeof contact !== 'object') {
+    console.log(JSON.stringify({ action: 'rolesSync', status: 'error', message: 'Invalid or missing event/contact in payload' }));
     return res.status(200).json({ received: true });
   }
-
-  const customValues = contact.custom_values || {};
+  if (!contact.custom_values || typeof contact.custom_values !== 'object') {
+    console.log(JSON.stringify({ action: 'rolesSync', status: 'error', message: 'Missing custom_values in contact' }));
+    return res.status(200).json({ received: true });
+  }
+  const customValues = contact.custom_values;
   const logtoUserId = customValues.logto_user_id;
   const email = contact.email;
   const subscriptionName = customValues.subscriptions_name || '';

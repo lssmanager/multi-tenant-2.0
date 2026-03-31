@@ -7,6 +7,16 @@ async function requireOrgAdmin(req, res, next) {
     if (!req.user || !req.user.id)
       return res.status(403).json({ error: 'Org admin role required' });
 
+    // 1. GLOBAL SUPER ADMIN CHECK (dominates all org logic)
+    const globalRoles = Array.isArray(req.user.globalRoles)
+      ? req.user.globalRoles.map(normalizeRoleName)
+      : (Array.isArray(req.user.roles) ? req.user.roles.map(normalizeRoleName) : []);
+    if (globalRoles.includes('super-admin') || req.user.accessContext?.isSuperAdmin) {
+      // Grant access regardless of org context or org roles
+      return next();
+    }
+
+    // 2. ORG CONTEXT CHECKS (only if NOT super admin)
     const accessContext = req.user.accessContext;
     const activeOrganizationId =
       accessContext?.effectiveOrganizationId || req.user.organizationId;
