@@ -140,6 +140,7 @@ const OrgMembersPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+  const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
 
   const [activeTab, setActiveTab] = useState<MembersTab>('members');
   const [search, setSearch] = useState('');
@@ -350,9 +351,8 @@ const OrgMembersPage = () => {
 
   const handleRemove = async (member: OrgMember) => {
     if (!effectiveOrgId) return;
-    const confirmation = window.confirm(`Remove ${member.email} from this organization?`);
-    if (!confirmation) return;
 
+    setConfirmRemove(null); // limpiar estado antes de proceder
     setActionLoadingId(member.id);
     setError(null);
     setMessage(null);
@@ -601,14 +601,35 @@ const OrgMembersPage = () => {
                           >
                             {actionLoadingId === `email-${member.id}` ? 'Sending link...' : 'Send email change link'}
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => handleRemove(member)}
-                            disabled={actionLoadingId === member.id}
-                            className="text-sm text-red-600 hover:underline disabled:opacity-50"
-                          >
-                            Remove from school
-                          </button>
+                          {/* FE-010: confirmación inline — reemplaza window.confirm */}
+                          {confirmRemove === member.id ? (
+                            <span className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleRemove(member)}
+                                disabled={actionLoadingId === member.id}
+                                className="text-sm text-red-600 font-medium hover:underline disabled:opacity-50"
+                              >
+                                {actionLoadingId === member.id ? 'Eliminando...' : 'Confirmar'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setConfirmRemove(null)}
+                                className="text-sm text-gray-500 hover:underline"
+                              >
+                                Cancelar
+                              </button>
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setConfirmRemove(member.id)}
+                              disabled={actionLoadingId === member.id}
+                              className="text-sm text-red-600 hover:underline disabled:opacity-50"
+                            >
+                              Remove from school
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
