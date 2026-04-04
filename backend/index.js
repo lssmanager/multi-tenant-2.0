@@ -25,14 +25,24 @@ app.use('/webhook/logto', express.raw({ type: 'application/json' }), webhookRout
 app.use(express.json());
 
 // 3. Organizations admin API (Phase 2C)
-app.use('/organizations', organizationsRouter);
+app.use('/organizations', requireAuth(process.env.API_RESOURCE_INDICATOR), organizationsRouter);
 
-// 4. FluentCRM role-sync webhook (no auth middleware — verified via X-Webhook-Secret)
-app.use('/roles', rolesRouter);
+// 4. FluentCRM role-sync webhook — verify via X-Webhook-Secret
+app.use('/roles', (req, res, next) => {
+  const secret = req.headers['x-webhook-secret'];
+  if (!secret || secret !== process.env.ROLES_WEBHOOK_SECRET) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  next();
+}, rolesRouter);
 
-// 5. Org admin routes (after express.json)
+// 5. Org admin routes (after express.json) — canonical path
 app.use('/org-admin', requireAuth(process.env.API_RESOURCE_INDICATOR), requireOrgAdmin, orgAdminRouter);
-app.use('/org', requireAuth(process.env.API_RESOURCE_INDICATOR), requireOrgAdmin, orgAdminRouter);
+
+// Backward compatibility redirect from /org to /org-admin
+app.use('/org', (req, res) => {
+  res.redirect(308, req.url.replace('/org', '/org-admin'));
+});
 
 app.get(
   "/auth/access-context",

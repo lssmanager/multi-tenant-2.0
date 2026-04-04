@@ -1,4 +1,5 @@
 const axios = require('axios');
+const crypto = require('crypto');
 const { normalizeUsername, normalizeName } = require('../utils/normalizeUser');
 
 const MOODLE_URL = 'https://courses.learnsocialstudies.com/webservice/rest/server.php';
@@ -22,18 +23,15 @@ function moodleParams(wsfunction, extra) {
  */
 async function createMoodleUser({ email, username, name }) {
   const normalizedUsername = normalizeUsername(username, email);
-  const displayName = normalizeName(name, email);
-  const nameParts = displayName.split(' ');
-  const firstName = nameParts[0] || 'User';
-  const lastName = nameParts.slice(1).join(' ') || '.';
+  const { firstname: firstName, lastname: lastName } = normalizeName(name);
 
   const params = moodleParams('core_user_create_users');
   params.append('users[0][username]', normalizedUsername);
   params.append('users[0][email]', email);
-  params.append('users[0][firstname]', firstName);
-  params.append('users[0][lastname]', lastName);
+  params.append('users[0][firstname]', firstName || 'User');
+  params.append('users[0][lastname]', lastName || '.');
   params.append('users[0][auth]', 'oauth2');
-  params.append('users[0][createpassword]', '0');
+  params.append('users[0][password]', `Logto1!${crypto.randomBytes(4).toString('hex')}`);
 
   const doRequest = () =>
     client.post(MOODLE_URL, params.toString(), {

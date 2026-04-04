@@ -111,21 +111,14 @@ const resolveEffectiveAccess = (user, activeOrganizationId) => {
   const prefixedOrganizationRoles = effectiveOrganizationId
     ? Array.from(organizationRolesByOrg.get(effectiveOrganizationId) || [])
     : [];
-  const organizationRolesFromClaims = normalizeOrgRoleList(
-    user?.organizationRoles || user?.organization_roles
-  );
-  const organizationRolesFromTokenRoles = normalizeOrgRoleList(allTokenRoles);
+
+  // ONLY use the org-prefixed roles for the active org.
+  // Never merge unscoped claims — they cause cross-org contamination.
   const organizationRoles = effectiveOrganizationId
-    ? Array.from(
-        new Set([
-          ...prefixedOrganizationRoles,
-          ...organizationRolesFromClaims,
-          ...organizationRolesFromTokenRoles,
-        ])
-      )
+    ? Array.from(new Set(prefixedOrganizationRoles))
     : [];
 
-  const globalRoles = allTokenRoles.filter((role) => !ORG_ROLE_KEYS.has(role));
+  const globalRoles = allTokenRoles.filter((role) => !ORG_ROLE_KEYS.includes(role));
   const isSuperAdmin = globalRoles.includes("super-admin");
 
   const globalPermissions = globalRoles.flatMap(

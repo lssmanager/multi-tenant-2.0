@@ -37,13 +37,7 @@ function verifySignature(req) {
   }
 }
 
-// POST /webhook/logto
-router.post('/logto', (req, res, next) => {
-  if (!verifySignature(req)) {
-    return res.status(401).json({ error: 'Invalid signature' });
-  }
-  next();
-});
+// POST /webhook
 router.post('/', async (req, res) => {
   // 1. Verify HMAC signature
   if (!verifySignature(req)) {
@@ -87,7 +81,12 @@ router.post('/', async (req, res) => {
     }));
   }
 
-  // 4. Always respond 200
+  // 4. Handle User.Updated
+  if (event === 'User.Updated') {
+    console.log(JSON.stringify({ event: 'User.Updated', userId: data?.id }));
+  }
+
+  // 5. Always respond 200
   return res.status(200).json({ received: true });
 });
 

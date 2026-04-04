@@ -22,14 +22,14 @@ function wpAuthHeaders() {
  */
 async function createWordPressUser({ email, username, name }) {
   const normalizedUsername = normalizeUsername(username, email);
-  const displayName = normalizeName(name, email);
+  const { firstname, lastname } = normalizeName(name);
   const url = `${WP_BASE}/users`;
 
   const payload = {
     username: normalizedUsername,
     email,
     password: require('crypto').randomBytes(24).toString('hex'),
-    name: displayName,
+    name: `${firstname} ${lastname}`.trim() || normalizedUsername,
     roles: ['subscriber'],
   };
 
@@ -81,7 +81,7 @@ async function createWordPressUser({ email, username, name }) {
  * @returns {Promise<object|null>} WP user object or null
  */
 async function findWordPressUserByEmail(email) {
-  const url = `https://www.learnsocialstudies.com/wp-json/wp/v2/users?search=${encodeURIComponent(email)}`;
+  const url = `${WP_BASE}/users?search=${encodeURIComponent(email)}&roles=any&context=edit`;
   try {
     const { data } = await client.get(url, { headers: wpAuthHeaders() });
     if (Array.isArray(data)) {

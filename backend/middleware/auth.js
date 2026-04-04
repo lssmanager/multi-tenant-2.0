@@ -17,6 +17,29 @@ const getTokenFromHeader = (headers) => {
   return authorization.slice(bearerTokenIdentifier.length + 1);
 };
 
+/**
+ * Throws 403 if the user is not a super-admin and the requestedOrgId is not
+ * in their JWT organizations list. Super admin bypasses entirely.
+ */
+function assertOrgAccessible(payload, requestedOrgId, isSuperAdmin) {
+  if (!requestedOrgId) return;
+  if (isSuperAdmin) return; // super admin: bypass — can operate in any org
+
+  const userOrgIds = Array.isArray(payload.organizations)
+    ? payload.organizations
+        .map((o) => (typeof o === 'string' ? o : o?.id))
+        .filter(Boolean)
+    : [];
+
+  const payloadOrgId = payload.organization_id || payload.organizationId;
+  if (requestedOrgId === payloadOrgId) return;
+  if (userOrgIds.includes(requestedOrgId)) return;
+
+  const err = new Error('Organization not accessible');
+  err.status = 403;
+  throw err;
+}
+
 // The `aud` (audience) claim in the JWT token follows the format:
 // "urn:logto:organization:<organization_id>"
 // For example: "urn:logto:organization:123456789"
@@ -78,17 +101,13 @@ const requireOrganizationAccess = ({ requiredScopes = [] } = {}) => {
       // Verify the token with the expected audience
       const payload = await verifyJwt(token, expectedAudience);
 
-      // Extract organization ID from the audience claim
-      const organizationId = payload.organization_id;
+      // Resolve global roles and super-admin flag
+      const globalRoles = Array.isArray(payload.roles)
+        ? payload.roles.map(normalizeRoleName)
+        : [];
+      const isSuperAdmin = globalRoles.includes('super-admin');
 
-      // Get scopes from the token
-      const scopes = payload.scope?.split(" ") || [];
-
-      // Verify required scopes
-      if (!hasRequiredScopes(scopes, requiredScopes)) {
-        throw new Error("Insufficient permissions");
-      }
-
+      // Build the requested org from headers/query
       const headerActiveOrganizationId =
         typeof req.headers["x-active-organization-id"] === "string"
           ? req.headers["x-active-organization-id"]
@@ -105,18 +124,38 @@ const requireOrganizationAccess = ({ requiredScopes = [] } = {}) => {
         typeof req.query?.impersonationOrganizationId === "string"
           ? req.query.impersonationOrganizationId
           : undefined;
-      const effectiveOrganizationId =
+
+      const requestedOrg =
         headerImpersonationOrganizationId ||
         queryImpersonationOrganizationId ||
         headerActiveOrganizationId ||
-        queryActiveOrganizationId ||
+        queryActiveOrganizationId;
+
+      // Validate org access (throws 403 for non-super-admin accessing foreign org)
+      assertOrgAccessible(payload, requestedOrg, isSuperAdmin);
+
+      // Extract organization ID from the audience claim
+      const organizationId = payload.organization_id;
+
+      // Get scopes from the token
+      const scopes = payload.scope?.split(" ") || [];
+
+      // Verify required scopes
+      if (!hasRequiredScopes(scopes, requiredScopes)) {
+        throw new Error("Insufficient permissions");
+      }
+
+      const effectiveOrganizationId =
+        requestedOrg ||
         organizationId;
 
       // Add organization info to request
       req.user = {
         id: payload.sub,
         organizationId: effectiveOrganizationId || organizationId,
-        roles: Array.isArray(payload.roles) ? payload.roles.map(normalizeRoleName) : [],
+        isSuperAdmin,
+        roles: globalRoles,
+        globalRoles,
         organizations: Array.isArray(payload.organizations) ? payload.organizations : [],
         organizationRoles: Array.isArray(payload.organization_roles) ? payload.organization_roles : [],
         impersonationOrganizationId:
@@ -129,10 +168,14 @@ const requireOrganizationAccess = ({ requiredScopes = [] } = {}) => {
 
       next();
     } catch (error) {
-      const errorMessage = error.message === "Insufficient scopes" 
-        ? "Unauthorized - Insufficient permissions" 
-        : "Unauthorized - Invalid organization access";
-      res.status(401).json({ error: errorMessage });
+      const status = error.status === 403 ? 403 : 401;
+      const errorMessage =
+        error.status === 403
+          ? 'Forbidden: organization not accessible'
+          : error.message === 'Insufficient permissions'
+          ? 'Unauthorized - Insufficient permissions'
+          : 'Unauthorized - Invalid organization access';
+      res.status(status).json({ error: errorMessage });
     }
   };
 };
@@ -150,7 +193,16 @@ const requireAuth = (resource) => {
       // Verify the token
       const payload = await verifyJwt(token, resource);
 
-      // Add user info to request
+      // Resolve global roles and super-admin flag
+      const globalRoles = Array.isArray(payload.roles)
+        ? payload.roles.map(normalizeRoleName)
+        : [];
+      const isSuperAdmin = globalRoles.includes('super-admin');
+
+      // Extract organization ID from token
+      const payloadOrganizationId = payload.organization_id || payload.organizationId || undefined;
+
+      // Build the requested org from headers/query
       const headerActiveOrganizationId =
         typeof req.headers["x-active-organization-id"] === "string"
           ? req.headers["x-active-organization-id"]
@@ -167,20 +219,27 @@ const requireAuth = (resource) => {
         typeof req.query?.impersonationOrganizationId === "string"
           ? req.query.impersonationOrganizationId
           : undefined;
-      const payloadOrganizationId =
-        payload.organization_id || payload.organizationId || undefined;
-      const effectiveOrganizationId =
+
+      const requestedOrg =
         headerImpersonationOrganizationId ||
         queryImpersonationOrganizationId ||
         headerActiveOrganizationId ||
-        queryActiveOrganizationId ||
+        queryActiveOrganizationId;
+
+      // Validate org access (throws 403 for non-super-admin accessing foreign org)
+      assertOrgAccessible(payload, requestedOrg, isSuperAdmin);
+
+      const effectiveOrganizationId =
+        requestedOrg ||
         payloadOrganizationId;
 
       req.user = {
         id: payload.sub,
         scopes: payload.scope?.split(" ") || [],
         organizationId: effectiveOrganizationId,
-        roles: Array.isArray(payload.roles) ? payload.roles.map(normalizeRoleName) : [],
+        isSuperAdmin,
+        roles: globalRoles,
+        globalRoles,
         organizations: Array.isArray(payload.organizations) ? payload.organizations : [],
         organizationRoles: Array.isArray(payload.organization_roles) ? payload.organization_roles : [],
         impersonationOrganizationId:
@@ -193,7 +252,12 @@ const requireAuth = (resource) => {
 
       next();
     } catch (error) {
-      res.status(401).json({ error: "Unauthorized" });
+      const status = error.status === 403 ? 403 : 401;
+      const errorMessage =
+        error.status === 403
+          ? 'Forbidden: organization not accessible'
+          : 'Unauthorized';
+      res.status(status).json({ error: errorMessage });
     }
   };
 };

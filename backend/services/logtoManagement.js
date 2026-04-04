@@ -1,29 +1,14 @@
 
-const { getCachedOrgRoles } = require('../utils/roleCache');
-
-async function getOrgRoleIdByName(roleName) {
-  const normalizedRoleName = normalizeRoleName(roleName);
-  const headers = await authHeaders();
-  const allRoles = await getCachedOrgRoles(async () => {
-    const response = await axios.get(
-      `${process.env.LOGTO_ENDPOINT}/api/organization-roles`,
-      { headers, timeout: 5000 }
-    );
-    return response.data;
-  });
-  const found = allRoles.find((r) => normalizeRoleName(r.name) === normalizedRoleName);
-  if (!found) throw new Error(`Org role not found: ${roleName}`);
-  return found.id;
-}
-
-// ...existing code...
-
 const axios = require('axios');
 const { fetchLogtoManagementApiAccessToken } = require('../lib/utils');
+const { getCachedOrgRoles } = require('../utils/roleCache');
 
 const client = axios.create({ timeout: 5000 });
 
 const delay = (ms) => new Promise((r) => setTimeout(r, ms));
+
+let _cachedToken = null;
+let _tokenExpiresAt = 0;
 
 function normalizeRoleName(roleName) {
   return String(roleName || '')
@@ -32,13 +17,27 @@ function normalizeRoleName(roleName) {
     .replace(/[_\s]+/g, '-');
 }
 
-async function authHeaders() {
-  const token = await fetchLogtoManagementApiAccessToken();
-  return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+async function getManagementToken() {
+  if (_cachedToken && Date.now() < _tokenExpiresAt) return _cachedToken;
+  const resp = await axios.post(
+    `${process.env.LOGTO_ENDPOINT}/oidc/token`,
+    new URLSearchParams({
+      grant_type: 'client_credentials',
+      client_id: process.env.LOGTO_MANAGEMENT_API_APPLICATION_ID,
+      client_secret: process.env.LOGTO_MANAGEMENT_API_APPLICATION_SECRET,
+      resource: 'https://default.logto.app/api',
+      scope: 'all',
+    }),
+    { headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, timeout: 5000 }
+  );
+  _cachedToken = resp.data.access_token;
+  _tokenExpiresAt = Date.now() + (resp.data.expires_in - 60) * 1000;
+  return _cachedToken;
 }
 
-async function getManagementToken() {
-  return fetchLogtoManagementApiAccessToken();
+async function authHeaders() {
+  const token = await getManagementToken();
+  return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
 }
 
 /**
@@ -87,63 +86,65 @@ async function assignToRetailOrg(userId) {
 }
 
 /**
- * Sync a user's role in Logto: revoke all current roles and assign the new one.
+ * Internal: Sync a user's role in Logto: revoke all current roles and assign the new one.
  * If roleName is 'subscriber' and that role doesn't exist in Logto, just revoke all.
  *
  * @param {string} userId — Logto user ID
  * @param {string} roleName — target role name (e.g. 'premium_student', 'subscriber')
  */
-async function syncUserRole(userId, roleName) {
+async function _doSyncUserRole(userId, roleName) {
   const base = `${process.env.LOGTO_ENDPOINT}/api`;
 
+  // 1. Get all system roles
+  const headers = await authHeaders();
+  const { data: allRoles } = await client.get(`${base}/roles`, { headers });
+
+  // 2. Find target role
+  const targetRole = allRoles.find((r) => r.name === roleName);
+  if (!targetRole && roleName !== 'subscriber') {
+    console.log(JSON.stringify({ action: 'syncUserRole', userId, roleName, status: 'error', message: `Role '${roleName}' not found in Logto` }));
+    return;
+  }
+
+  // 3. Get current roles of the user
+  const refreshedHeaders = await authHeaders();
+  const { data: currentRoles } = await client.get(`${base}/users/${userId}/roles`, { headers: refreshedHeaders });
+
+  // 4. Revoke all current roles
+  if (currentRoles.length > 0) {
+    const roleIds = currentRoles.map((r) => r.id);
+    const deleteHeaders = await authHeaders();
+    await client.delete(`${base}/users/${userId}/roles`, { headers: deleteHeaders, data: { roleIds } });
+  }
+
+  // 5. Assign new role (skip if subscriber role doesn't exist)
+  if (targetRole) {
+    const assignHeaders = await authHeaders();
+    await client.post(`${base}/users/${userId}/roles`, { roleIds: [targetRole.id] }, { headers: assignHeaders });
+  }
+}
+
+/**
+ * Sync a user's role in Logto with single retry on network errors.
+ * @param {string} userId — Logto user ID
+ * @param {string} roleName — target role name (e.g. 'premium_student', 'subscriber')
+ */
+async function syncUserRole(userId, roleName) {
   try {
-    // 1. Get all system roles
-    const headers = await authHeaders();
-    const { data: allRoles } = await client.get(`${base}/roles`, { headers });
-    console.log(JSON.stringify({ action: 'syncUserRole', userId, step: 'fetchedSystemRoles', count: allRoles.length, status: 'ok' }));
-
-    // 2. Find target role
-    const targetRole = allRoles.find((r) => r.name === roleName);
-    if (!targetRole && roleName !== 'subscriber') {
-      console.log(JSON.stringify({ action: 'syncUserRole', userId, roleName, status: 'error', message: `Role '${roleName}' not found in Logto` }));
-      return;
-    }
-
-    // 3. Get current roles of the user
-    const refreshedHeaders = await authHeaders();
-    const { data: currentRoles } = await client.get(`${base}/users/${userId}/roles`, { headers: refreshedHeaders });
-    console.log(JSON.stringify({ action: 'syncUserRole', userId, step: 'fetchedUserRoles', current: currentRoles.map((r) => r.name), status: 'ok' }));
-
-    // 4. Revoke all current roles
-    if (currentRoles.length > 0) {
-      const roleIds = currentRoles.map((r) => r.id);
-      const deleteHeaders = await authHeaders();
-      await client.delete(`${base}/users/${userId}/roles`, { headers: deleteHeaders, data: { roleIds } });
-      console.log(JSON.stringify({ action: 'syncUserRole', userId, step: 'revokedRoles', roleIds, status: 'ok' }));
-    }
-
-    // 5. Assign new role (skip if subscriber role doesn't exist)
-    if (targetRole) {
-      const assignHeaders = await authHeaders();
-      await client.post(`${base}/users/${userId}/roles`, { roleIds: [targetRole.id] }, { headers: assignHeaders });
-      console.log(JSON.stringify({ action: 'syncUserRole', userId, step: 'assignedRole', roleName, roleId: targetRole.id, status: 'ok' }));
-    } else {
-      console.log(JSON.stringify({ action: 'syncUserRole', userId, step: 'noRoleToAssign', roleName, status: 'ok' }));
-    }
+    await _doSyncUserRole(userId, roleName);
+    console.log(JSON.stringify({ action: 'syncUserRole', userId, roleName, status: 'ok' }));
   } catch (err) {
     if (!err.response) {
-      console.log(JSON.stringify({ action: 'syncUserRole', userId, roleName, status: 'retrying', message: err.message }));
+      console.log(JSON.stringify({ action: 'syncUserRole', userId, roleName, status: 'retrying' }));
       await delay(1000);
       try {
-        // Simplified retry: just attempt the full sync again is too complex,
-        // log the error and let the caller handle it
-        console.log(JSON.stringify({ action: 'syncUserRole', userId, roleName, status: 'error', message: 'Retry not attempted for multi-step operation' }));
+        await _doSyncUserRole(userId, roleName);
+        console.log(JSON.stringify({ action: 'syncUserRole', userId, roleName, status: 'ok_after_retry' }));
       } catch (retryErr) {
-        console.log(JSON.stringify({ action: 'syncUserRole', userId, roleName, status: 'error', message: retryErr.message }));
+        console.log(JSON.stringify({ action: 'syncUserRole', userId, roleName, status: 'error', message: 'Retry failed' }));
       }
       return;
     }
-
     console.log(JSON.stringify({ action: 'syncUserRole', userId, roleName, status: 'error', message: err.message }));
   }
 }
@@ -257,6 +258,26 @@ async function getUserRoles(userId) {
   } catch (err) {
     throw new Error(`getUserRoles failed: ${err.message}`);
   }
+}
+
+/**
+ * Get organization role ID by name. Uses cache to avoid repeated API calls.
+ * @param {string} roleName
+ * @returns {Promise<string>} role ID
+ */
+async function getOrgRoleIdByName(roleName) {
+  const normalizedRoleName = normalizeRoleName(roleName);
+  const headers = await authHeaders();
+  const allRoles = await getCachedOrgRoles(async () => {
+    const response = await client.get(
+      `${process.env.LOGTO_ENDPOINT}/api/organization-roles`,
+      { headers, timeout: 5000 }
+    );
+    return response.data;
+  });
+  const found = allRoles.find((r) => normalizeRoleName(r.name) === normalizedRoleName);
+  if (!found) throw new Error(`Org role not found: ${roleName}`);
+  return found.id;
 }
 
 module.exports = {
