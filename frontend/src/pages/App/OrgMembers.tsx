@@ -26,6 +26,7 @@ export default function OrgMembers() {
   const [error, setError] = useState<string | null>(null);
   const [updating, setUpdating] = useState<string | null>(null);
   const [removing, setRemoving] = useState<string | null>(null);
+  const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
 
   useEffect(() => {
     if (!effectiveOrgId || !isOrgAdmin) return;
@@ -100,13 +101,34 @@ export default function OrgMembers() {
               </td>
               <td className="py-2 px-4 capitalize">{member.status}</td>
               <td className="py-2 px-4">
-                <button
-                  onClick={() => handleRemove(member.id)}
-                  disabled={removing === member.id}
-                  className="text-red-600 hover:underline disabled:opacity-50"
-                >
-                  {removing === member.id ? 'Eliminando...' : 'Eliminar'}
-                </button>
+                {confirmRemove === member.id ? (
+                  <span className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        setConfirmRemove(null);
+                        void handleRemove(member.id);
+                      }}
+                      disabled={removing === member.id}
+                      className="text-red-600 font-medium hover:underline disabled:opacity-50"
+                    >
+                      {removing === member.id ? 'Eliminando...' : 'Confirmar'}
+                    </button>
+                    <button
+                      onClick={() => setConfirmRemove(null)}
+                      className="text-gray-500 hover:underline"
+                    >
+                      Cancelar
+                    </button>
+                  </span>
+                ) : (
+                  <button
+                    onClick={() => setConfirmRemove(member.id)}
+                    disabled={removing === member.id}
+                    className="text-red-600 hover:underline disabled:opacity-50"
+                  >
+                    Eliminar
+                  </button>
+                )}
               </td>
             </tr>
           ))}

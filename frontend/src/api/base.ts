@@ -71,11 +71,26 @@ export const useApi = (): UseApiResult => {
         },
       });
 
+      if (response.status === 401) {
+        // Despachar evento para que App.tsx pueda redirigir al login
+        window.dispatchEvent(new CustomEvent('auth:session-expired'));
+        throw new ApiRequestError('Session expired — please sign in again', 401);
+      }
+
+      if (response.status === 403) {
+        throw new ApiRequestError('Insufficient permissions for this action', 403);
+      }
+
       if (!response.ok) {
-        throw new ApiRequestError(
-          `API request failed: ${response.statusText}`,
-          response.status
-        );
+        let errorMessage = `API request failed: ${response.statusText}`;
+        try {
+          const errorBody = await response.json() as Record<string, unknown>;
+          if (typeof errorBody.error === 'string') errorMessage = errorBody.error;
+          else if (typeof errorBody.message === 'string') errorMessage = errorBody.message;
+        } catch {
+          // body no es JSON — usar statusText
+        }
+        throw new ApiRequestError(errorMessage, response.status);
       }
 
       return await response.json();

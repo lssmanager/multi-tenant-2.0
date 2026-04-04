@@ -217,6 +217,20 @@ export const useCurrentUser = (): CurrentUser => {
   const isImpersonating = Boolean(isSuperAdmin && impersonatedOrgId);
   // canImpersonate is true for super-admin users
   const canImpersonate = isSuperAdmin;
+
+  // FE-006 FIX: obtener orgName del JWT organization_data, no del storage
+  const resolvedOrgName = (() => {
+    if (!isSuperAdmin) return undefined;
+    if (!impersonatedOrgId) return undefined;
+    // Buscar en organization_data del JWT primero
+    const fromJwt = Array.isArray(userInfo?.organization_data)
+      ? (userInfo.organization_data as Array<{ id?: string; name?: string }>)
+          .find(o => normalizeString(o.id) === impersonatedOrgId)?.name
+      : undefined;
+    // Fallback al storage si el JWT no lo tiene (org nueva no visible aún)
+    return fromJwt ?? impersonationContext?.orgName;
+  })();
+
   const accessContext = {
     isSuperAdmin,
     primaryRole: isSuperAdmin ? ('super-admin' as const) : ('org-role' as const),
@@ -236,7 +250,7 @@ export const useCurrentUser = (): CurrentUser => {
     effectiveOrgId,
     isImpersonating,
     impersonatedOrgId,
-    impersonatedOrgName: isSuperAdmin ? impersonationContext?.orgName : undefined,
+    impersonatedOrgName: resolvedOrgName,
     impersonatedRole: isSuperAdmin ? impersonationContext?.role : undefined,
     isSuperAdmin,
     isRetail,

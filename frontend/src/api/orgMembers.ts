@@ -1,31 +1,27 @@
 import { useMemo } from 'react';
 import { useApi } from './base';
-
-export interface OrgMember {
-  id: string;
-  name: string;
-  email: string;
-  role: 'student' | 'teacher' | 'admin';
-  status: 'active' | 'invited' | 'deactivated';
-  lastActivity?: string;
-  origin?: 'invite' | 'auto-provision' | string;
-  invitedAt?: string;
-  inviteAttempts?: number;
-  invitationStatus?: 'pending' | 'accepted' | 'expired' | string;
-}
-
-export interface InviteMemberPayload {
-  email: string;
-  role: 'student' | 'teacher' | 'admin';
-  name?: string;
-}
+import type { OrgMember, InviteMemberPayload } from '../types/org';
 
 export const useOrgMembersApi = () => {
   const { fetchWithToken } = useApi();
 
   return useMemo(() => ({
-    listMembers: (orgId: string) =>
-      fetchWithToken('/org/members', { method: 'GET' }, orgId) as Promise<OrgMember[]>,
+    listMembers: async (orgId: string, page = 1, perPage = 50): Promise<OrgMember[]> => {
+      const data = await fetchWithToken<unknown>(
+        `/org/members?page=${page}&perPage=${perPage}`,
+        { method: 'GET' },
+        orgId
+      );
+      if (Array.isArray(data)) return data as OrgMember[];
+      if (
+        data !== null &&
+        typeof data === 'object' &&
+        Array.isArray((data as Record<string, unknown>).items)
+      ) {
+        return (data as { items: OrgMember[] }).items;
+      }
+      return [];
+    },
 
     inviteMember: (orgId: string, payload: InviteMemberPayload) =>
       fetchWithToken('/org/invite', {

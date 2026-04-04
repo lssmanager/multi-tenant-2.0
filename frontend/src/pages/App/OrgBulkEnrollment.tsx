@@ -377,34 +377,49 @@ export default function OrgBulkEnrollment() {
     setMessage(null);
     const nextResults: ProcessResult[] = [];
 
-    for (const row of validRows) {
-      try {
-        await inviteMember(effectiveOrgId, {
-          name: row.studentName,
-          email: row.email,
-          role: 'student',
-        });
-        nextResults.push({
-          rowNumber: row.rowNumber,
-          email: row.email,
-          action: 'created',
-          detail: 'Invite sent and enrollment row accepted.',
-        });
-      } catch (error) {
-        const text = getErrorMessage(error);
-        const action: RowAction =
-          text.toLowerCase().includes('conflict') || text.includes('409') || text.toLowerCase().includes('exist')
-            ? 'already existed'
-            : 'error';
-        nextResults.push({
-          rowNumber: row.rowNumber,
-          email: row.email,
-          action,
-          detail:
-            action === 'already existed'
-              ? 'User already existed in this organization.'
-              : text,
-        });
+    const CONCURRENCY = 10;
+
+    // Procesar en chunks paralelos de CONCURRENCY
+    for (let i = 0; i < validRows.length; i += CONCURRENCY) {
+      const chunk = validRows.slice(i, i + CONCURRENCY);
+      const chunkOutcomes = await Promise.allSettled(
+        chunk.map((row) =>
+          inviteMember(effectiveOrgId, {
+            name: row.studentName,
+            email: row.email,
+            role: 'student',
+          }).then(() => ({ row, action: 'created' as RowAction, detail: 'Invite sent and enrollment row accepted.' }))
+        )
+      );
+
+      for (let j = 0; j < chunkOutcomes.length; j++) {
+        const outcome = chunkOutcomes[j];
+        const row = chunk[j];
+        if (outcome.status === 'fulfilled') {
+          nextResults.push({
+            rowNumber: row.rowNumber,
+            email: row.email,
+            action: outcome.value.action,
+            detail: outcome.value.detail,
+          });
+        } else {
+          const text = getErrorMessage(outcome.reason);
+          const action: RowAction =
+            text.toLowerCase().includes('conflict') ||
+            text.includes('409') ||
+            text.toLowerCase().includes('exist')
+              ? 'already existed'
+              : 'error';
+          nextResults.push({
+            rowNumber: row.rowNumber,
+            email: row.email,
+            action,
+            detail:
+              action === 'already existed'
+                ? 'User already existed in this organization.'
+                : text,
+          });
+        }
       }
     }
 
