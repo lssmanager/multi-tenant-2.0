@@ -1,11 +1,8 @@
 import Topbar from "../../components/Topbar";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
 
-const Dashboard = () => {
-  const { orgRoles, userInfo, loading, currentOrganization } = useCurrentUser();
-
-  const isOrgAdmin = orgRoles.includes("admin");
-  const isTeacher  = orgRoles.includes("teacher");
+const Organizations = () => {
+  const { loading, currentOrganization, isOrgAdmin, isTeacher } = useCurrentUser();
 
   if (loading) {
     return (
@@ -49,4 +46,4 @@ const Dashboard = () => {
   );
 };
 
-export default Dashboard;
+export default Organizations;
