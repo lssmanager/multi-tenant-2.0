@@ -44,8 +44,8 @@ export interface CurrentUser {
   impersonatedOrgName: string | undefined;
   impersonatedRole: 'admin' | 'teacher' | 'student' | undefined;
   isSuperAdmin: boolean;
-  isRetail: boolean;
   canImpersonate: boolean;
+  isRetail: boolean;
   isOrgAdmin: boolean;
   isTeacher: boolean;
   isStudent: boolean;
@@ -205,31 +205,32 @@ export const useCurrentUser = (): CurrentUser => {
   }, []);
 
   const isSuperAdmin = globalRoles.includes('super-admin');
-  // Impersonation context is only relevant if super-admin and explicitly set
-  const impersonatedOrgId = isSuperAdmin && impersonationContext?.orgId ? normalizeString(impersonationContext.orgId) : undefined;
+
+  // Impersonation context is only valid for super-admin
+  const impersonatedOrgId = isSuperAdmin && impersonationContext?.orgId
+    ? normalizeString(impersonationContext.orgId)
+    : undefined;
   const effectiveOrgId = impersonatedOrgId || orgId;
   const isRetail = effectiveOrgId === normalizeString(APP_ENV.retailOrgId);
-  // isSuperAdmin always wins — if true, all org capability flags are true
-  const isOrgAdmin = isSuperAdmin || orgRoles.includes('admin');
-  const isTeacher = isSuperAdmin || orgRoles.includes('teacher');
-  const isStudent = isSuperAdmin || orgRoles.includes('student');
-  // Impersonation is only true if super-admin and impersonation context is set
-  const isImpersonating = Boolean(isSuperAdmin && impersonatedOrgId);
-  // canImpersonate is true for super-admin users
-  const canImpersonate = isSuperAdmin;
 
-  // FE-006 FIX: obtener orgName del JWT organization_data, no del storage
+  // FE-001 FIX: super-admin always has full access — never blocked by org role checks
+  const isOrgAdmin = isSuperAdmin || orgRoles.includes('admin');
+  const isTeacher  = isSuperAdmin || orgRoles.includes('teacher');
+  const isStudent  = isSuperAdmin || orgRoles.includes('student');
+  const isImpersonating = Boolean(isSuperAdmin && impersonatedOrgId);
+
+  // FE-006 FIX: resolve org name from JWT organization_data first, localStorage as fallback
   const resolvedOrgName = (() => {
-    if (!isSuperAdmin) return undefined;
-    if (!impersonatedOrgId) return undefined;
-    // Buscar en organization_data del JWT primero
+    if (!isSuperAdmin || !impersonatedOrgId) return undefined;
     const fromJwt = Array.isArray(userInfo?.organization_data)
       ? (userInfo.organization_data as Array<{ id?: string; name?: string }>)
-          .find(o => normalizeString(o.id) === impersonatedOrgId)?.name
+          .find((o) => normalizeString(o.id) === impersonatedOrgId)?.name
       : undefined;
-    // Fallback al storage si el JWT no lo tiene (org nueva no visible aún)
     return fromJwt ?? impersonationContext?.orgName;
   })();
+
+  // canImpersonate: explicit boolean for components that render impersonation UI
+  const canImpersonate = isSuperAdmin;
 
   const accessContext = {
     isSuperAdmin,
@@ -253,8 +254,8 @@ export const useCurrentUser = (): CurrentUser => {
     impersonatedOrgName: resolvedOrgName,
     impersonatedRole: isSuperAdmin ? impersonationContext?.role : undefined,
     isSuperAdmin,
-    isRetail,
     canImpersonate,
+    isRetail,
     isOrgAdmin,
     isTeacher,
     isStudent,

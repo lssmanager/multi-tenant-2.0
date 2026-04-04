@@ -1,6 +1,6 @@
 import { ChangeEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { useApi } from '../../api/base';
-import { useOrgMembersApi, type OrgMember } from '../../api/orgMembers';
+import { useOrgMembersApi } from '../../api/orgMembers';
 import { useToast } from '../../components/ToastProvider';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 
@@ -38,6 +38,7 @@ type ProcessResult = {
 };
 
 const PREVIEW_LIMIT = 12;
+const CONCURRENCY = 10;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const asString = (value: unknown, fallback = ''): string => {
@@ -193,12 +194,15 @@ export default function OrgBulkEnrollment() {
         const users = Array.isArray(membersResult.value) ? membersResult.value : [];
         setTeachers(
           users
-            .filter((member: OrgMember) => member.role === 'teacher')
-            .map((member: OrgMember) => ({
-              id: member.id,
-              name: member.name || member.email,
-              email: member.email,
-            })),
+            .filter((member) => (member as { role?: string }).role === 'teacher')
+            .map((member) => {
+              const m = member as { id: string; name?: string; email: string };
+              return {
+                id: m.id,
+                name: m.name || m.email,
+                email: m.email,
+              };
+            }),
         );
       } else {
         setTeachers([]);
@@ -357,6 +361,7 @@ export default function OrgBulkEnrollment() {
     }
   };
 
+  // FE-008: parallel enrollment in chunks of CONCURRENCY using Promise.allSettled
   const processEnrollment = async () => {
     if (!effectiveOrgId) return;
     if (hasBlockingErrors) {
@@ -377,9 +382,6 @@ export default function OrgBulkEnrollment() {
     setMessage(null);
     const nextResults: ProcessResult[] = [];
 
-    const CONCURRENCY = 10;
-
-    // Procesar en chunks paralelos de CONCURRENCY
     for (let i = 0; i < validRows.length; i += CONCURRENCY) {
       const chunk = validRows.slice(i, i + CONCURRENCY);
       const chunkOutcomes = await Promise.allSettled(
@@ -388,7 +390,11 @@ export default function OrgBulkEnrollment() {
             name: row.studentName,
             email: row.email,
             role: 'student',
-          }).then(() => ({ row, action: 'created' as RowAction, detail: 'Invite sent and enrollment row accepted.' }))
+          }).then(() => ({
+            row,
+            action: 'created' as RowAction,
+            detail: 'Invite sent and enrollment row accepted.',
+          }))
         )
       );
 

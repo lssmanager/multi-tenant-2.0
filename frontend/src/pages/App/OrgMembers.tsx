@@ -1,16 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { useOrgMembersApi } from '../../api/orgMembers';
+import type { OrgMember } from '../../types/org';
 
 type Role = 'admin' | 'teacher' | 'student';
-
-interface Member {
-  id: string;
-  name: string;
-  email: string;
-  role: Role;
-  status: 'active' | 'invited' | 'deactivated';
-}
 
 const roleOptions: { value: Role; label: string }[] = [
   { value: 'student', label: 'Student' },
@@ -21,11 +14,12 @@ const roleOptions: { value: Role; label: string }[] = [
 export default function OrgMembers() {
   const { effectiveOrgId, isOrgAdmin, loading: userLoading } = useCurrentUser();
   const { listMembers, updateMemberRole, removeMember } = useOrgMembersApi();
-  const [members, setMembers] = useState<Member[]>([]);
+  const [members, setMembers] = useState<OrgMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updating, setUpdating] = useState<string | null>(null);
   const [removing, setRemoving] = useState<string | null>(null);
+  // FE-010: inline confirm-before-delete state
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
 
   useEffect(() => {
@@ -60,6 +54,7 @@ export default function OrgMembers() {
       setError('No se pudo eliminar el miembro');
     } finally {
       setRemoving(null);
+      setConfirmRemove(null);
     }
   };
 

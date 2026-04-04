@@ -2,10 +2,14 @@ import { useMemo } from 'react';
 import { useApi } from './base';
 import type { OrgMember, InviteMemberPayload } from '../types/org';
 
+export type { OrgMember, InviteMemberPayload } from '../types/org';
+
 export const useOrgMembersApi = () => {
   const { fetchWithToken } = useApi();
 
   return useMemo(() => ({
+    // FE-003: validates response shape before casting
+    // FE-007: supports optional pagination params
     listMembers: async (orgId: string, page = 1, perPage = 50): Promise<OrgMember[]> => {
       const data = await fetchWithToken<unknown>(
         `/org/members?page=${page}&perPage=${perPage}`,

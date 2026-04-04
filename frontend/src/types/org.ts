@@ -1,4 +1,6 @@
 // frontend/src/types/org.ts
+// Single source of truth for org-related types across the frontend.
+// Import from here — do NOT redefine OrgMember locally in components.
 
 export type OrgMemberRole = 'admin' | 'teacher' | 'student';
 

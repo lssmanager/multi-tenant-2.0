@@ -32,7 +32,7 @@ export class ApiRequestError extends Error {
 }
 
 export const useApi = (): UseApiResult => {
-  const { getAccessToken } = useLogto(); // ← getOrganizationToken ya no se necesita
+  const { getAccessToken } = useLogto();
 
   const fetchWithToken = useMemo<FetchWithToken>(() => async (
     endpoint: string,
@@ -43,7 +43,6 @@ export const useApi = (): UseApiResult => {
       let token: string | undefined;
 
       if (organizationId) {
-        // ✅ Token con aud: https://api.learnsocialstudies.com + org_id en claims
         token = await getAccessToken(DOCUMIND_API_RESOURCE_INDICATOR, organizationId);
       } else {
         token = await getAccessToken(DOCUMIND_API_RESOURCE_INDICATOR);
@@ -56,6 +55,7 @@ export const useApi = (): UseApiResult => {
             : "Failed to get access token"
         );
       }
+
       const impersonationContext = getImpersonationContext();
 
       const response = await fetch(`${API_BASE_URL}${endpoint}`, {
@@ -71,8 +71,8 @@ export const useApi = (): UseApiResult => {
         },
       });
 
+      // FE-004: typed 401/403 handling with global session-expired event
       if (response.status === 401) {
-        // Despachar evento para que App.tsx pueda redirigir al login
         window.dispatchEvent(new CustomEvent('auth:session-expired'));
         throw new ApiRequestError('Session expired — please sign in again', 401);
       }
@@ -88,7 +88,7 @@ export const useApi = (): UseApiResult => {
           if (typeof errorBody.error === 'string') errorMessage = errorBody.error;
           else if (typeof errorBody.message === 'string') errorMessage = errorBody.message;
         } catch {
-          // body no es JSON — usar statusText
+          // body is not JSON — use statusText
         }
         throw new ApiRequestError(errorMessage, response.status);
       }
