@@ -1,5 +1,5 @@
 // middleware/requireSuperAdmin.js
-// Guard que verifica que el usuario tenga el rol super_admin global.
+// Guard que verifica que el usuario tenga el rol super-admin global.
 // No exige organizationId en el token — el super-admin opera a nivel global.
 
 module.exports = function requireSuperAdmin(req, res, next) {
