@@ -18,7 +18,7 @@ router.get('/access-context', authenticate, (req, res) => {
     organizationId:    user.organizationId    ?? null,
     organizationRoles: user.organizationRoles ?? [],
     userRoles:         user.roles              ?? [],
-    isSuperAdmin:      (user.roles ?? []).includes('super_admin'),
+    isSuperAdmin:      (user.roles ?? []).includes('super-admin'),
   });
 });
 

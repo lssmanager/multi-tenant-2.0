@@ -149,7 +149,7 @@ export default function OrgOverview() {
 
       if (isSuperAdmin) {
         try {
-          const orgPayload = await fetchWithToken<unknown>('/organizations', { method: 'GET' });
+          const orgPayload = await fetchWithToken<unknown>('/admin/organizations', { method: 'GET' });
           const resolved = resolveSchoolFromOrganizationsPayload(orgPayload, effectiveOrgId);
           if (resolved) {
             setSchool(resolved);
@@ -195,7 +195,7 @@ export default function OrgOverview() {
     const newDomain = institutionalDomainDraft.trim();
     setSavingDomain(true);
     try {
-      await fetchWithToken(`/organizations/${effectiveOrgId}`, {
+      await fetchWithToken(`/admin/organizations/${effectiveOrgId}`, {
         method: 'PATCH',
         body: JSON.stringify({ institutionalDomain: newDomain }),
       });

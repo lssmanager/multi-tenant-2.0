@@ -10,7 +10,7 @@ export const useOrganizationApi = () => {
 
   return useMemo(() => ({
         createOrganization: async (data: { name: string; description?: string }) => {
-          return await fetchWithToken('/organizations', {
+          return await fetchWithToken('/admin/organizations', {
             method: 'POST',
             body: JSON.stringify(data),
           });

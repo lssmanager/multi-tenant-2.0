@@ -4,7 +4,7 @@
 
 module.exports = function requireSuperAdmin(req, res, next) {
   const roles = req.user?.roles ?? [];
-  if (!roles.includes('super_admin')) {
+  if (!roles.includes('super-admin')) {
     return res.status(403).json({ error: 'Super-admin role required.' });
   }
   next();

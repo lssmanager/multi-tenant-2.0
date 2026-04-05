@@ -14,7 +14,7 @@ const axios = require('axios');
  */
 const getOrganizationId = (req) => {
   const roles = req.user?.roles ?? [];
-  const isSuperAdmin = roles.includes('super_admin');
+  const isSuperAdmin = roles.includes('super-admin');
 
   // Org-admin: organizationId comes from JWT
   if (req.user?.organizationId && !isSuperAdmin) {
@@ -34,7 +34,7 @@ const getOrganizationId = (req) => {
  */
 const getOrgIdErrorMessage = (req) => {
   const roles = req.user?.roles ?? [];
-  const isSuperAdmin = roles.includes('super_admin');
+  const isSuperAdmin = roles.includes('super-admin');
   return isSuperAdmin
     ? 'Super-admin must provide x-org-id header or ?orgId= query param'
     : 'Organization context missing. Token has no organization_id.';

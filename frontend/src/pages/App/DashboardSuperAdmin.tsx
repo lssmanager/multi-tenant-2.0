@@ -227,7 +227,7 @@ export default function DashboardSuperAdmin() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetchWithToken<unknown>('/organizations', { method: 'GET' });
+      const response = await fetchWithToken<unknown>('/admin/organizations', { method: 'GET' });
       const parsedOrganizations = extractOrganizations(response).map(mapTenant);
       const parsedSummary = computeSummary(response);
 
@@ -300,7 +300,7 @@ export default function DashboardSuperAdmin() {
     applyStepStatus('loading');
 
     try {
-      await fetchWithToken('/organizations', {
+      await fetchWithToken('/admin/organizations', {
         method: 'POST',
         body: JSON.stringify({
           name: createForm.name,

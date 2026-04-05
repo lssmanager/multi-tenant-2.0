@@ -152,7 +152,7 @@ const OrganizationDetails = () => {
       setLoading(true);
       setError(null);
       try {
-        const payload = await fetchWithToken<unknown>('/organizations', { method: 'GET' });
+        const payload = await fetchWithToken<unknown>('/admin/organizations', { method: 'GET' });
         const rows = Array.isArray(payload)
           ? payload
           : (payload as { organizations?: unknown[]; data?: unknown[] }).organizations ||
@@ -296,7 +296,7 @@ const OrganizationDetails = () => {
     };
 
     try {
-      await fetchWithToken(`/organizations/${organization.id}`, {
+      await fetchWithToken(`/admin/organizations/${organization.id}`, {
         method: 'PATCH',
         body: JSON.stringify(payload),
       });

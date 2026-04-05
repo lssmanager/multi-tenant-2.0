@@ -19,7 +19,7 @@ export const useResourceApi = () => {
 
   return useMemo(() => ({
     createOrganization: async (data: CreateOrganizationData): Promise<{ data: { id: string } }> => {
-      return await fetchWithToken('/organizations', {
+      return await fetchWithToken('/admin/organizations', {
         method: 'POST',
         body: JSON.stringify(data),
       });
