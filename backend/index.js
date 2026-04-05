@@ -40,15 +40,8 @@ app.use('/roles', (req, res, next) => {
   next();
 }, rolesRouter);
 
-// 6. Org admin routes (after express.json) — canonical path
-app.use('/org-admin', requireAuth(process.env.API_RESOURCE_INDICATOR), requireOrgAdmin, orgAdminRouter);
-
-// Backward compatibility redirect from /org to /org-admin
-app.use('/org', (req, res) => {
-  res.redirect(308, req.url.replace('/org', '/org-admin'));
-});
-
-// (Removed duplicate /auth/access-context endpoint — now served via /auth router)
+// 6. Org admin routes — org-scoped member/group/course management
+app.use('/org', requireAuth(process.env.API_RESOURCE_INDICATOR), requireOrgAdmin, orgAdminRouter);
 
 // Documents routes
 app.get(
