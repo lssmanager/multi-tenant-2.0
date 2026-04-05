@@ -28,8 +28,8 @@ app.use(express.json());
 // 3. Auth API routes (access-context, etc)
 app.use('/auth', authRouter);
 
-// 4. Organizations admin API (Phase 2C)
-app.use('/organizations', requireAuth(process.env.API_RESOURCE_INDICATOR), organizationsRouter);
+// 4. Organizations admin API — super-admin manages all orgs
+app.use('/admin/organizations', requireAuth(process.env.API_RESOURCE_INDICATOR), organizationsRouter);
 
 // 5. FluentCRM role-sync webhook — verify via X-Webhook-Secret
 app.use('/roles', (req, res, next) => {
@@ -49,75 +49,6 @@ app.use('/org', (req, res) => {
 });
 
 // (Removed duplicate /auth/access-context endpoint — now served via /auth router)
-
-// Organizations routes
-app.post(
-  "/organizations",
-  requireAuth(process.env.API_RESOURCE_INDICATOR),
-  async (req, res) => {
-    
-    const accessToken = await fetchLogtoManagementApiAccessToken();
-    // Create organization in Logto
-    const response = await fetch(`${process.env.LOGTO_ENDPOINT}/api/organizations`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({
-        name: req.body.name,
-        description: req.body.description,
-      }),
-    });
-    
-    const createdOrganization = await response.json();
-
-    await ensureOrgRolesExist();
-
-    // Add user to organization in Logto
-    await fetch(`${process.env.LOGTO_ENDPOINT}/api/organizations/${createdOrganization.id}/users`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({
-        userIds: [req.user.id],
-      }),
-    });
-
-    // Assign `Admin` role to the first user.
-    const rolesResponse = await fetch(`${process.env.LOGTO_ENDPOINT}/api/organization-roles`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-    });
-
-    const roles = await rolesResponse.json();
-
-    // Find the `Admin` role
-    const adminRole = roles.find(role => normalizeRoleName(role.name) === 'admin');
-    if (!adminRole) {
-      return res.status(500).json({ error: "Admin organization role not found" });
-    }
-
-    // Assign `Admin` role to the first user.
-    await fetch(`${process.env.LOGTO_ENDPOINT}/api/organizations/${createdOrganization.id}/users/${req.user.id}/roles`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({
-        organizationRoleIds: [adminRole.id],
-      }),
-    });
-
-    res.json({ data: createdOrganization });
-  }
-);
 
 // Documents routes
 app.get(

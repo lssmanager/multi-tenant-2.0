@@ -72,6 +72,42 @@ router.get('/', requireSuperAdmin, async (req, res) => {
   }
 });
 
+// GET /organizations/:orgId — Get organization details with accurate member count
+router.get('/:orgId', requireSuperAdmin, async (req, res) => {
+  try {
+    const { orgId } = req.params;
+    const token = await getManagementToken();
+    const LOGTO_BASE = process.env.LOGTO_ENDPOINT;
+
+    // Get org details
+    const orgRes = await axios.get(`${LOGTO_BASE}/api/organizations/${orgId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      timeout: 5000,
+    });
+
+    // Get member count from header (page_size: 1 to minimize data transfer)
+    const membersRes = await axios.get(`${LOGTO_BASE}/api/organizations/${orgId}/users`, {
+      headers: { Authorization: `Bearer ${token}` },
+      params: { page: 1, page_size: 1 },
+      timeout: 5000,
+    });
+
+    // Extract memberCount from response header (Logto returns total-number)
+    const memberCount = parseInt(
+      membersRes.headers?.['total-number'] ?? '0',
+      10
+    );
+
+    res.json({
+      ...orgRes.data,
+      memberCount,
+    });
+  } catch (err) {
+    console.log(JSON.stringify({ action: 'getOrganization', status: 'error', message: err.message }));
+    res.status(500).json({ error: 'Failed to get organization' });
+  }
+});
+
 // GET /organizations/retail/dashboard — Retail CRM snapshot for super-admin
 router.get('/retail/dashboard', requireSuperAdmin, async (req, res) => {
   try {
