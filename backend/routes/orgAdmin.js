@@ -1,19 +1,44 @@
 const express = require('express');
 const router = express.Router();
 const { requireOrgAdmin } = require('../middleware/requireOrgAdmin');
+const { authenticate } = require('../middleware/auth');
 const { getManagementToken, getOrgRoleIdByName } = require('../services/logtoManagement');
 const { findWordPressUserByEmail, updateWordPressUserRole } = require('../services/wordpress');
 const { assignMoodleRole } = require('../services/moodle');
 const axios = require('axios');
 
-// Source of truth: always from authenticated context
-const getOrganizationId = (req) =>
-  req.user?.accessContext?.effectiveOrganizationId ||
-  req.user?.organizationId ||
-  null;
+/**
+ * Resolve organization ID for the request.
+ * - Org-admin: reads from JWT (req.user.organizationId)
+ * - Super-admin: reads from header (x-org-id) or query (?orgId=)
+ */
+const getOrganizationId = (req) => {
+  const roles = req.user?.roles ?? [];
+  const isSuperAdmin = roles.includes('super_admin');
 
-// All sensitive org-admin routes require org admin guard
-router.use(requireOrgAdmin);
+  // Org-admin: organizationId comes from JWT
+  if (req.user?.organizationId && !isSuperAdmin) {
+    return req.user.organizationId;
+  }
+
+  // Super-admin: must provide orgId via header or query
+  if (isSuperAdmin) {
+    return req.headers['x-org-id'] || req.query.orgId || null;
+  }
+
+  return null;
+};
+
+/**
+ * Build error message based on context.
+ */
+const getOrgIdErrorMessage = (req) => {
+  const roles = req.user?.roles ?? [];
+  const isSuperAdmin = roles.includes('super_admin');
+  return isSuperAdmin
+    ? 'Super-admin must provide x-org-id header or ?orgId= query param'
+    : 'Organization context missing. Token has no organization_id.';
+};
 
 const buildGroupSnapshot = (organizationId) => ([
   {
@@ -46,17 +71,25 @@ const buildCourseSnapshot = (organizationId) => ([
 ]);
 
 const { listOrgMembers } = require('../services/orgMembers');
+
 // GET /org/members
-router.get('/members', async (req, res) => {
+router.get('/members', authenticate, async (req, res) => {
+  const organizationId = getOrganizationId(req);
+
+  if (!organizationId) {
+    return res.status(400).json({ error: getOrgIdErrorMessage(req) });
+  }
+
   try {
-    const organizationId = getOrganizationId(req);
-    if (!organizationId) {
-      return res.status(400).json({ error: 'Organization context missing' });
-    }
     const members = await listOrgMembers(organizationId);
     return res.status(200).json({ organizationId, members });
   } catch (err) {
-    const organizationId = getOrganizationId(req);
+    console.log(JSON.stringify({
+      action: 'listOrgMembers',
+      organizationId,
+      status: 'error',
+      message: err.message,
+    }));
     return res.status(200).json({
       organizationId,
       members: [],
@@ -65,12 +98,12 @@ router.get('/members', async (req, res) => {
   }
 });
 
-// POST /org-admin/invite
-router.post('/invite', async (req, res) => {
+// POST /org/invite
+router.post('/invite', authenticate, async (req, res) => {
   const organizationId = getOrganizationId(req);
   const { email } = req.body;
   if (!organizationId) {
-    return res.status(400).json({ error: 'Organization context missing' });
+    return res.status(400).json({ error: getOrgIdErrorMessage(req) });
   }
   try {
     const token = await getManagementToken();
@@ -91,10 +124,10 @@ router.post('/invite', async (req, res) => {
 });
 
 // GET /org/groups
-router.get('/groups', async (req, res) => {
+router.get('/groups', authenticate, async (req, res) => {
   const organizationId = getOrganizationId(req);
   if (!organizationId) {
-    return res.status(400).json({ error: 'Organization context missing' });
+    return res.status(400).json({ error: getOrgIdErrorMessage(req) });
   }
   return res.status(200).json({
     organizationId,
@@ -103,10 +136,10 @@ router.get('/groups', async (req, res) => {
 });
 
 // GET /org/courses
-router.get('/courses', async (req, res) => {
+router.get('/courses', authenticate, async (req, res) => {
   const organizationId = getOrganizationId(req);
   if (!organizationId) {
-    return res.status(400).json({ error: 'Organization context missing' });
+    return res.status(400).json({ error: getOrgIdErrorMessage(req) });
   }
   return res.status(200).json({
     organizationId,
@@ -116,11 +149,11 @@ router.get('/courses', async (req, res) => {
 
 const { createGroupForTeacher } = require('../services/orgGroups');
 // POST /org/groups
-router.post('/groups', async (req, res) => {
+router.post('/groups', authenticate, async (req, res) => {
   const organizationId = getOrganizationId(req);
   const { teacherId, teacherName, courseId, groupName } = req.body || {};
   if (!organizationId) {
-    return res.status(400).json({ error: 'Organization context missing' });
+    return res.status(400).json({ error: getOrgIdErrorMessage(req) });
   }
   try {
     const group = await createGroupForTeacher({ organizationId, teacherId, teacherName, courseId, groupName });
@@ -132,10 +165,10 @@ router.post('/groups', async (req, res) => {
 
 const { bulkEnroll } = require('../services/orgBulkEnrollment');
 // POST /org/bulk-enrollment
-router.post('/bulk-enrollment', async (req, res) => {
+router.post('/bulk-enrollment', authenticate, async (req, res) => {
   const organizationId = getOrganizationId(req);
   if (!organizationId) {
-    return res.status(400).json({ error: 'Organization context missing' });
+    return res.status(400).json({ error: getOrgIdErrorMessage(req) });
   }
   const rows = Array.isArray(req.body?.rows) ? req.body.rows : [];
   try {
@@ -146,13 +179,13 @@ router.post('/bulk-enrollment', async (req, res) => {
   }
 });
 
-// PATCH /org-admin/members/:userId/role
-router.patch('/members/:userId/role', async (req, res) => {
+// PATCH /org/members/:userId/role
+router.patch('/members/:userId/role', authenticate, async (req, res) => {
   const organizationId = getOrganizationId(req);
   const { userId } = req.params;
   const { role } = req.body;
   if (!organizationId) {
-    return res.status(400).json({ error: 'Organization context missing' });
+    return res.status(400).json({ error: getOrgIdErrorMessage(req) });
   }
   const validRoles = ['student', 'teacher', 'admin'];
   if (!validRoles.includes(role)) {
@@ -221,12 +254,12 @@ router.patch('/members/:userId/role', async (req, res) => {
   return res.status(200).json({ updated: true, results });
 });
 
-// DELETE /org-admin/members/:userId
-router.delete('/members/:userId', async (req, res) => {
+// DELETE /org/members/:userId
+router.delete('/members/:userId', authenticate, async (req, res) => {
   const organizationId = getOrganizationId(req);
   const { userId } = req.params;
   if (!organizationId) {
-    return res.status(400).json({ error: 'Organization context missing' });
+    return res.status(400).json({ error: getOrgIdErrorMessage(req) });
   }
   try {
     const token = await getManagementToken();
