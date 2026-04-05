@@ -12,7 +12,7 @@ import OrganizationPage from '../OrganizationPage';
 import Dashboard from './Dashboard';
 import Landing from './Landing';
 import OrganizationDetails from './OrganizationDetails';
-import Organizations from './Organizations';
+import OrganizationsList from '../OrganizationsList';
 import OrgGroupsCourses from './OrgGroupsCourses';
 import OrgBulkEnrollment from './OrgBulkEnrollment';
 import OrgInvite from './OrgInvite';
@@ -107,7 +107,7 @@ function AppContent() {
             <Routes>
               <Route path="/" element={<Dashboard />} />
               <Route path=":orgId" element={<OrganizationPage />} />
-              <Route path="/organizations" element={isSuperAdmin ? <Organizations /> : <NotFound />} />
+              <Route path="/organizations" element={isSuperAdmin ? <OrganizationsList /> : <NotFound />} />
               <Route path="/organizations/:id" element={isSuperAdmin ? <OrganizationDetails /> : <NotFound />} />
               <Route path="/org/members" element={canAccessOrgAdminViews ? <OrgMembersPage /> : <NotFound />} />
               <Route path="/org/invite" element={canAccessOrgAdminViews ? <OrgInvite /> : <NotFound />} />

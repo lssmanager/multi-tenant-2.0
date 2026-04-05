@@ -9,6 +9,7 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 // Routers and middleware
+const authRouter = require('./routes/auth');
 const orgAdminRouter = require('./routes/orgAdmin');
 const { requireOrgAdmin } = require('./middleware/requireOrgAdmin');
 const webhookRouter = require('./routes/webhook');
@@ -24,10 +25,13 @@ app.use('/webhook/logto', express.raw({ type: 'application/json' }), webhookRout
 // 2. JSON parser for all other routes
 app.use(express.json());
 
-// 3. Organizations admin API (Phase 2C)
+// 3. Auth API routes (access-context, etc)
+app.use('/auth', authRouter);
+
+// 4. Organizations admin API (Phase 2C)
 app.use('/organizations', requireAuth(process.env.API_RESOURCE_INDICATOR), organizationsRouter);
 
-// 4. FluentCRM role-sync webhook — verify via X-Webhook-Secret
+// 5. FluentCRM role-sync webhook — verify via X-Webhook-Secret
 app.use('/roles', (req, res, next) => {
   const secret = req.headers['x-webhook-secret'];
   if (!secret || secret !== process.env.ROLES_WEBHOOK_SECRET) {
@@ -36,7 +40,7 @@ app.use('/roles', (req, res, next) => {
   next();
 }, rolesRouter);
 
-// 5. Org admin routes (after express.json) — canonical path
+// 6. Org admin routes (after express.json) — canonical path
 app.use('/org-admin', requireAuth(process.env.API_RESOURCE_INDICATOR), requireOrgAdmin, orgAdminRouter);
 
 // Backward compatibility redirect from /org to /org-admin
@@ -44,19 +48,7 @@ app.use('/org', (req, res) => {
   res.redirect(308, req.url.replace('/org', '/org-admin'));
 });
 
-app.get(
-  "/auth/access-context",
-  requireAuth(process.env.API_RESOURCE_INDICATOR),
-  async (req, res) => {
-    return res.status(200).json({
-      accessContext: req.user.accessContext,
-      activeOrganizationId:
-        req.query?.activeOrganizationId ||
-        req.user.organizationId ||
-        null,
-    });
-  }
-);
+// (Removed duplicate /auth/access-context endpoint — now served via /auth router)
 
 // Organizations routes
 app.post(
