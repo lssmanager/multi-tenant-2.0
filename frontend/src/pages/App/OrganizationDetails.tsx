@@ -5,6 +5,7 @@ import { useApi } from '../../api/base';
 import { useToast } from '../../components/ToastProvider';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { setImpersonationContext } from '../../lib/impersonation';
+import { setActiveOrgId } from '../../lib/apiClient';
 import { getSyncUiBadge, getSyncUiMessage, type SyncUiState } from '../../lib/syncUi';
 
 type DetailTab = 'summary' | 'org-admin';
@@ -134,6 +135,15 @@ const OrganizationDetails = () => {
   });
 
   const orgId = id || '';
+
+  // Set the active org context for super-admin accessing /org/* routes
+  useEffect(() => {
+    if (orgId) {
+      setActiveOrgId(orgId);
+    }
+    // Clean up when component unmounts or orgId changes
+    return () => setActiveOrgId(null);
+  }, [orgId]);
 
   useEffect(() => {
     if (!isSuperAdmin || !orgId) return;

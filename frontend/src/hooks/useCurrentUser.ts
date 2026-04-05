@@ -33,6 +33,7 @@ const normalizeStringList = (values: string[] | undefined | null) =>
 
 export interface CurrentUser {
   loading: boolean;
+  error: string | null;
   isAuthenticated: boolean;
   userInfo: LogtoUserInfo | null;
   currentOrganization: LogtoOrganizationData | null;
@@ -66,6 +67,7 @@ export interface CurrentUser {
 export const useCurrentUser = (): CurrentUser => {
   const { isAuthenticated, fetchUserInfo, getAccessToken } = useLogto();
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [userInfo, setUserInfo] = useState<LogtoUserInfo | null>(null);
   const [currentOrganization, setCurrentOrganization] = useState<LogtoOrganizationData | null>(null);
   const [organizations, setOrganizations] = useState<string[]>([]);
@@ -92,6 +94,7 @@ export const useCurrentUser = (): CurrentUser => {
       setOrgRoles([]);
       setEffectivePermissions([]);
       setEffectiveScopes({});
+      setError(null);
     };
 
     const loadUser = async () => {
@@ -175,6 +178,7 @@ export const useCurrentUser = (): CurrentUser => {
       } catch {
         if (cancelled) return;
         resetState();
+        setError('Failed to load user information');
       } finally {
         if (!cancelled) {
           setLoading(false);
@@ -243,6 +247,7 @@ export const useCurrentUser = (): CurrentUser => {
 
   return {
     loading,
+    error,
     isAuthenticated,
     userInfo,
     currentOrganization,

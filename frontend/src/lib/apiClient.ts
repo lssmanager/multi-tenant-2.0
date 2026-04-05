@@ -4,6 +4,17 @@ import { LOGTO_RESOURCE } from "../logtoConfig";
 import { APP_ENV, type AppEnv } from "../env";
 import { useLogto } from "@logto/react";
 
+// Global state for super-admin org context
+let activeOrgId: string | null = null;
+
+export function setActiveOrgId(orgId: string | null) {
+  activeOrgId = orgId;
+}
+
+export function getActiveOrgId(): string | null {
+  return activeOrgId;
+}
+
 export function useApiClient() {
   const logtoClient = useLogto();
   const apiBaseUrl: AppEnv["api"]["baseUrl"] = APP_ENV.api.baseUrl;
@@ -16,6 +27,12 @@ export function useApiClient() {
       "Authorization": `Bearer ${token}`,
       "Content-Type": "application/json",
     };
+
+    // Inject x-org-id header for super-admin accessing /org/* routes
+    if (activeOrgId && path.startsWith('/org/')) {
+      headers['x-org-id'] = activeOrgId;
+    }
+
     try {
       const res = await fetch(url, {
         method,
